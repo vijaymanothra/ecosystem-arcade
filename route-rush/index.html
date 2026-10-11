@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Route Rush</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="toast" hidden></div>
+
+  <!-- ATTRACT -->
+  <section id="attract" class="screen">
+    <header class="brand">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </header>
+    <div class="attract-body">
+      <div class="panel demo">
+        <h2>📨 Incoming request…</h2>
+        <div class="demo-card">
+          <div id="demoFrom" class="card-from"></div>
+          <div id="demoText" class="demo-text"></div>
+        </div>
+        <div id="demoAnswer" class="demo-answer"></div>
+        <ol class="howto">
+          <li><b>Read</b> the request</li>
+          <li><b>Tap</b> the business that handles it</li>
+          <li><b>Hurry</b> — don't let patience run out!</li>
+        </ol>
+      </div>
+      <div class="panel board">
+        <h2 id="lbTitle"></h2>
+        <ol id="lb"></ol>
+      </div>
+    </div>
+    <div class="mode-row">
+      <button id="soloBtn" class="cta pulse" type="button">▶ SOLO</button>
+      <button id="duelBtn" class="cta duel" type="button">⚔️ DUEL · 2 PLAYERS</button>
+    </div>
+  </section>
+
+  <!-- DUEL READY -->
+  <section id="ready" class="screen" hidden>
+    <h1 class="ready-title">⚔️ DUEL MODE</h1>
+    <p class="ready-sub">Stand side by side. Same requests, same clock — highest score wins!</p>
+    <div class="ready-row">
+      <button class="ready-btn p1" data-p="1" type="button">PLAYER 1<small>Tap when ready</small></button>
+      <button class="ready-btn p2" data-p="2" type="button">PLAYER 2<small>Tap when ready</small></button>
+    </div>
+    <button id="readyBack" class="ghost" type="button">Back</button>
+  </section>
+
+  <!-- COUNTDOWN -->
+  <section id="countdown" class="screen" hidden>
+    <p class="ready-sub">Get ready!</p>
+    <div id="countNum">3</div>
+  </section>
+
+  <!-- PLAY -->
+  <section id="play" class="screen" hidden>
+    <div class="topbar">
+      <div id="lvlName"></div>
+      <div id="progress" class="progress"></div>
+      <div id="eventBar" class="event-bar" hidden></div>
+      <div id="lvlTime"></div>
+    </div>
+    <div id="arena"></div>
+    <div id="levelCard" class="level-card" hidden>
+      <div class="lc-inner">
+        <div id="lcLabel" class="label"></div>
+        <h1 id="lcTitle"></h1>
+        <p id="lcSub"></p>
+        <div id="lcTiles" class="lc-tiles"></div>
+        <p class="tap-hint pulse">Tap to start</p>
+      </div>
+    </div>
+    <div id="banner" class="banner" hidden></div>
+  </section>
+
+  <!-- SOLO RESULTS -->
+  <section id="soloOver" class="screen" hidden>
+    <div class="over-top">
+      <div>
+        <h1 id="soTitle"></h1>
+        <p id="soSub"></p>
+      </div>
+      <div class="final">
+        <div class="label">FINAL SCORE</div>
+        <div id="soScore">0</div>
+        <div id="soBonus"></div>
+      </div>
+    </div>
+    <div class="over-mid">
+      <div class="stats">
+        <div><b id="stRouted"></b><span>Routed</span></div>
+        <div><b id="stAcc"></b><span>Accuracy</span></div>
+        <div><b id="stStreak"></b><span>Best streak</span></div>
+        <div><b id="stSpeed"></b><span>Avg route</span></div>
+      </div>
+      <div id="blind" class="blind"></div>
+    </div>
+    <div id="soBadges" class="badges"></div>
+    <div class="actions">
+      <button id="saveBtn" class="cta pulse" type="button">SAVE MY SCORE</button>
+      <button id="againBtn" class="cta" type="button">PLAY AGAIN</button>
+      <button id="homeBtn" class="ghost" type="button">Home</button>
+    </div>
+  </section>
+
+  <!-- DUEL RESULTS -->
+  <section id="duelOver" class="screen" hidden>
+    <h1 id="duTitle"></h1>
+    <div class="duel-cols">
+      <div id="du1" class="duel-col p1"></div>
+      <div class="vs">VS</div>
+      <div id="du2" class="duel-col p2"></div>
+    </div>
+    <div class="actions">
+      <button id="rematchBtn" class="cta pulse" type="button">⚔️ REMATCH</button>
+      <button id="duHomeBtn" class="ghost" type="button">Home</button>
+    </div>
+  </section>
+
+  <!-- NAME ENTRY -->
+  <section id="entry" class="screen" hidden>
+    <h2 class="entry-title">🏆 You made the Top <span id="entryTop"></span>!</h2>
+    <p class="ready-sub">Type your first name</p>
+    <div id="nameBox" class="name-box"></div>
+    <div id="keys" class="keys"></div>
+    <button id="skipBtn" class="ghost" type="button">Skip</button>
+  </section>
+
+  <!-- STAFF: MULTI-TOUCH TEST (press T) -->
+  <div id="touchTest" hidden>
+    <div class="tt-info">
+      <h2>Multi-touch test</h2>
+      <p>Touch the screen with several fingers at once.</p>
+      <p class="tt-count">Now: <b id="ttNow">0</b> · Max: <b id="ttMax">0</b></p>
+      <p class="tt-verdict" id="ttVerdict"></p>
+      <p class="tt-exit">Press T or Esc to close</p>
+    </div>
+  </div>
+
+  <script src="content.js"></script>
+  <script src="../shared/passport.js" data-game="route-rush"></script>
+  <script src="game.js"></script>
+</body>
+</html>

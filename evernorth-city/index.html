@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Evernorth City</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- the living city: always rendered behind every screen -->
+  <div id="stage" class="day">
+    <div class="sky sky-day"></div>
+    <div class="sky sky-sunset"></div>
+    <div class="sky sky-night"></div>
+    <div id="sun" class="orb sun">☀️</div>
+    <div id="moon" class="orb moon">🌙</div>
+    <div id="clouds" class="clouds"></div>
+    <svg id="city" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="toast" hidden></div>
+
+  <!-- ATTRACT -->
+  <section id="attract" class="screen">
+    <header class="brand">
+      <div class="kicker">🏙️ A CITY-BUILDING GAME</div>
+      <h1 id="title"></h1>
+      <p id="tagline"></p>
+    </header>
+    <div class="attract-row">
+      <div class="panel how">
+        <h2>How to play</h2>
+        <ol>
+          <li><b>📜 Pick a blueprint</b> — one of our businesses</li>
+          <li><b>✅ Pass the permit</b> — answer a question about it</li>
+          <li><b>🏗️ Watch it rise</b> — population grows</li>
+          <li><b>📰 Survive the news</b> — the right businesses protect your city</li>
+        </ol>
+      </div>
+      <div class="panel lb-panel">
+        <h2 id="lbTitle"></h2>
+        <ol id="lb"></ol>
+      </div>
+    </div>
+    <button id="startBtn" class="cta pulse" type="button">🏗️ BECOME MAYOR</button>
+  </section>
+
+  <!-- PLAY HUD -->
+  <section id="play" class="screen" hidden>
+    <header class="hud">
+      <div class="hud-title">🏙️ EVERNORTH CITY</div>
+      <div class="stat pop"><span class="label">POPULATION</span><b id="pop">0</b></div>
+      <div class="stat cov"><span class="label">BUSINESSES</span><div id="cov" class="cov-icons"></div></div>
+      <div class="stat"><span class="label">DAY</span><b id="day">1 / 10</b></div>
+      <div class="stat news"><span class="label">NEXT NEWS</span><b id="newsIn"></b></div>
+    </header>
+    <div id="prompt" class="prompt"></div>
+    <div id="hand" class="hand"></div>
+  </section>
+
+  <!-- PERMIT (question) -->
+  <div id="permit" class="overlay" hidden>
+    <div id="permitCard" class="permit">
+      <div class="permit-head">
+        <span id="pmIcon" class="pm-icon"></span>
+        <div class="pm-titles">
+          <div class="pm-kicker">BUILDING PERMIT APPLICATION · <span id="pmLevel"></span></div>
+          <div id="pmName" class="pm-name"></div>
+        </div>
+        <div class="pm-seal">🏛️</div>
+      </div>
+      <div class="permit-body">
+        <div class="pm-timer"><div id="pmTimerFill"></div></div>
+        <p id="pmQ" class="pm-q"></p>
+        <div id="pmOpts" class="pm-opts"></div>
+        <div id="pmResult" class="pm-result" hidden>
+          <div id="pmAnswer" class="pm-answer"></div>
+          <div class="pm-fact"><span class="label">DID YOU KNOW?</span><p id="pmFact"></p></div>
+          <div class="pm-foot"><div class="pm-bar"><div id="pmBar"></div></div><span class="tap-hint">Tap to continue</span></div>
+        </div>
+      </div>
+      <div id="pmStamp" class="pm-stamp" hidden></div>
+    </div>
+  </div>
+
+  <!-- NEWS -->
+  <div id="news" class="overlay" hidden>
+    <div id="paper" class="paper">
+      <div class="masthead">
+        <span>VOL. 1</span>
+        <h2>The Evernorth Times</h2>
+        <span id="paperDay"></span>
+      </div>
+      <div class="breaking">⚡ BREAKING NEWS ⚡</div>
+      <div class="paper-main">
+        <div id="nwIcon" class="nw-icon"></div>
+        <h1 id="nwHeadline"></h1>
+      </div>
+      <div id="nwOutcome" class="nw-outcome"></div>
+      <div id="nwTip" class="nw-tip"></div>
+      <p class="tap-hint">Tap to continue</p>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <section id="results" class="screen" hidden>
+    <div class="res-card">
+      <div id="resRankIcon" class="res-icon"></div>
+      <div class="label">YOUR CITY IS A</div>
+      <h1 id="resRank"></h1>
+      <div class="res-pop"><span class="label">FINAL POPULATION</span><b id="resPop">0</b></div>
+      <div class="res-stats">
+        <div><b id="rsBuilt"></b><span>Businesses</span></div>
+        <div><b id="rsLand"></b><span>Landmarks</span></div>
+        <div><b id="rsPermits"></b><span>Permits</span></div>
+        <div><b id="rsNews"></b><span>News handled</span></div>
+      </div>
+      <div id="resBadges" class="badges"></div>
+      <div class="actions">
+        <button id="saveBtn" class="cta pulse" type="button">SAVE AS MAYOR</button>
+        <button id="againBtn" class="cta" type="button">BUILD AGAIN</button>
+        <button id="homeBtn" class="ghost" type="button">Home</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAME ENTRY -->
+  <section id="entry" class="screen" hidden>
+    <div class="entry-card">
+      <h2 class="entry-title">🏆 Top <span id="entryTop"></span> Mayor!</h2>
+      <p class="entry-sub">Type your first name</p>
+      <div id="nameBox" class="name-box"></div>
+      <div id="keys" class="keys"></div>
+      <button id="skipBtn" class="ghost" type="button">Skip</button>
+    </div>
+  </section>
+
+  <script src="questions.js"></script>
+  <script src="content.js"></script>
+  <script src="../shared/passport.js" data-game="evernorth-city"></script>
+  <script src="game.js"></script>
+</body>
+</html>

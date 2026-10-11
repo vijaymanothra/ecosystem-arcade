@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Case Files</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="lamp" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="toast" hidden></div>
+
+  <!-- ATTRACT -->
+  <section id="attract" class="screen">
+    <header class="brand">
+      <div class="confidential">TOP SECRET · EMPLOYEES ONLY</div>
+      <h1 id="title"></h1>
+      <p id="tagline"></p>
+    </header>
+    <div class="attract-row">
+      <div class="paper how">
+        <h2>🕵️ Your mission</h2>
+        <ol>
+          <li>Pick a <b>case file</b> from the desk</li>
+          <li>Read each <b>clue</b> on the sticky note</li>
+          <li><b>Drag the red string</b> to the business that solved it</li>
+          <li>Close the case — and see the <b>whole journey</b></li>
+        </ol>
+      </div>
+      <div class="paper lb">
+        <h2 id="lbTitle"></h2>
+        <ol id="lb"></ol>
+      </div>
+    </div>
+    <button id="startBtn" class="cta pulse" type="button">📂 OPEN THE CASE FILES</button>
+  </section>
+
+  <!-- DESK: choose a case -->
+  <section id="desk" class="screen" hidden>
+    <h2 class="desk-title">Choose your case <small id="deskCount"></small></h2>
+    <div id="folders" class="folders"></div>
+  </section>
+
+  <!-- BRIEFING -->
+  <section id="briefing" class="screen" hidden>
+    <div class="dossier">
+      <div class="dossier-tab" id="brCode"></div>
+      <div class="dossier-body">
+        <div class="polaroid big"><div class="ph" id="brPhoto"></div><div class="cap" id="brName"></div><div class="tag" id="brTag"></div></div>
+        <div class="brief">
+          <div class="label">CASE BRIEFING</div>
+          <h1 id="brTitle"></h1>
+          <p id="brIntro" class="typed"></p>
+          <div id="brSteps" class="br-steps"></div>
+          <button id="investigateBtn" class="cta" type="button">🔍 START INVESTIGATION</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOARD -->
+  <section id="board" class="screen" hidden>
+    <div class="cork-frame">
+      <div id="cork" class="cork">
+        <svg id="strings" class="strings"></svg>
+        <div id="nodes"></div>
+        <div class="drag-hint" id="dragHint">👆 Drag the red string to a business — or tap it</div>
+      </div>
+    </div>
+    <aside class="file">
+      <div class="file-head">
+        <div class="code" id="bdCode"></div>
+        <div class="file-title" id="bdTitle"></div>
+      </div>
+      <div class="sticky" id="sticky">
+        <div class="sticky-label" id="clueLabel"></div>
+        <p id="clueText" class="typed"></p>
+        <div id="hint" class="hint" hidden></div>
+      </div>
+      <div class="evidence">
+        <div class="label">EVIDENCE BOARD</div>
+        <ol id="evidence"></ol>
+      </div>
+      <div class="file-foot">
+        <div><span class="label">SCORE</span><b id="bdScore">0</b></div>
+        <div><span class="label">MISTAKES</span><b id="bdMistakes">0</b></div>
+        <div><span class="label">TIME</span><b id="bdTime">0:00</b></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- CASE CLOSED -->
+  <section id="closed" class="screen" hidden>
+    <div class="closed-card">
+      <div class="closed-stamp">CASE CLOSED</div>
+      <div class="label" id="clCode"></div>
+      <h1 id="clTitle"></h1>
+      <p class="cl-sub">The full journey, end to end:</p>
+      <div id="chain" class="chain"></div>
+      <div class="cl-score">
+        <div><span class="label">CASE SCORE</span><b id="clScore">0</b></div>
+        <div><span class="label">MISTAKES</span><b id="clMistakes">0</b></div>
+        <div><span class="label">TIME</span><b id="clTime">0:00</b></div>
+      </div>
+      <div id="clBonus" class="cl-bonus"></div>
+      <button id="nextBtn" class="cta pulse" type="button">NEXT CASE ➜</button>
+    </div>
+  </section>
+
+  <!-- FINAL REPORT -->
+  <section id="report" class="screen" hidden>
+    <div class="report-card paper">
+      <div class="label">DETECTIVE PERFORMANCE REPORT</div>
+      <div id="rpIcon" class="rp-icon"></div>
+      <h1 id="rpRank"></h1>
+      <div class="rp-score"><span class="label">TOTAL SCORE</span><b id="rpScore">0</b></div>
+      <div class="rp-stats">
+        <div><b id="rpCases"></b><span>Cases closed</span></div>
+        <div><b id="rpAcc"></b><span>First-try accuracy</span></div>
+        <div><b id="rpTime"></b><span>Total time</span></div>
+      </div>
+      <div id="rpBadges" class="badges"></div>
+      <div class="actions">
+        <button id="saveBtn" class="cta pulse" type="button">SIGN THE REPORT</button>
+        <button id="againBtn" class="cta" type="button">NEW INVESTIGATION</button>
+        <button id="homeBtn" class="ghost" type="button">Home</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAME ENTRY -->
+  <section id="entry" class="screen" hidden>
+    <div class="paper entry-card">
+      <h2 class="entry-title">🏆 Top <span id="entryTop"></span> Detective!</h2>
+      <p class="entry-sub">Sign with your first name</p>
+      <div id="nameBox" class="name-box"></div>
+      <div id="keys" class="keys"></div>
+      <button id="skipBtn" class="ghost" type="button">Skip</button>
+    </div>
+  </section>
+
+  <script src="questions.js"></script>
+  <script src="content.js"></script>
+  <script src="../shared/passport.js" data-game="case-files"></script>
+  <script src="game.js"></script>
+</body>
+</html>

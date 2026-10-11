@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>The Health Journey</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="toast" hidden></div>
+
+  <!-- LOBBY / ATTRACT -->
+  <section id="lobby" class="screen">
+    <div class="lobby-bg" aria-hidden="true"><div id="lobbyBoard" class="board"></div></div>
+    <header class="brand">
+      <div id="kicker" class="kicker"></div>
+      <h1 id="title"></h1>
+      <p id="tagline"></p>
+    </header>
+    <div class="lobby-body">
+      <div class="seats-wrap">
+        <h2>👆 Tap a token to join <small>(1–4 players)</small></h2>
+        <div id="seats" class="seats"></div>
+      </div>
+      <div class="panel lb-panel">
+        <h2 id="lbTitle"></h2>
+        <ol id="lb"></ol>
+      </div>
+    </div>
+    <button id="startBtn" class="cta" type="button" disabled>START JOURNEY</button>
+  </section>
+
+  <!-- PLAY -->
+  <section id="play" class="screen" hidden>
+    <div class="board-area"><div id="board" class="board"></div></div>
+    <aside class="side">
+      <div class="side-head">
+        <div id="roundInfo" class="round"></div>
+        <div class="mini-title">THE HEALTH JOURNEY</div>
+      </div>
+      <div id="playerCards" class="player-cards"></div>
+      <div class="turn-box">
+        <div id="turnWho" class="turn-who"></div>
+        <button id="rollBtn" class="cta roll" type="button">🎲 ROLL</button>
+        <div id="autoRoll" class="auto"></div>
+      </div>
+    </aside>
+    <div id="diceStage" class="dice-stage" hidden>
+      <div class="dice-wrap"><div id="dice" class="dice"></div></div>
+      <div id="diceResult" class="dice-result"></div>
+    </div>
+    <div id="turnBanner" class="turn-banner" hidden></div>
+  </section>
+
+  <!-- CHALLENGE CARD -->
+  <div id="challenge" class="overlay" hidden>
+    <div id="chCard" class="ch-card">
+      <div class="ch-head">
+        <span id="chIcon" class="ch-icon"></span>
+        <div class="ch-titles">
+          <div class="ch-kicker">JOURNEY CHALLENGE · <span id="chZone"></span></div>
+          <div id="chName" class="ch-name"></div>
+        </div>
+        <div id="chPlayer" class="ch-player"></div>
+      </div>
+      <div class="ch-body">
+        <div class="ch-timer"><div id="chTimerFill"></div></div>
+        <div id="chDouble" class="ch-double" hidden>✨ DOUBLE COINS ✨</div>
+        <p id="chQ" class="ch-q"></p>
+        <div id="chOpts" class="ch-opts"></div>
+        <div id="chResult" class="ch-result" hidden>
+          <div id="chResTitle" class="ch-res-title"></div>
+          <div id="chAnswer" class="ch-answer"></div>
+          <div class="ch-fact"><span class="label">DID YOU KNOW?</span><p id="chFact"></p></div>
+          <div class="ch-foot"><div class="ch-bar"><div id="chBar"></div></div><span class="tap-hint">Tap to continue</span></div>
+        </div>
+      </div>
+      <div id="chStamp" class="stamp-slam" hidden></div>
+    </div>
+  </div>
+
+  <!-- EVENT CARD (flip) -->
+  <div id="eventOverlay" class="overlay" hidden>
+    <div id="flip" class="flip">
+      <div class="flip-inner">
+        <div class="face back"><span id="evBackIcon"></span><small id="evKind"></small></div>
+        <div class="face front">
+          <div id="evIcon" class="ev-icon"></div>
+          <h2 id="evTitle"></h2>
+          <p id="evText"></p>
+          <div id="evEffect" class="ev-effect"></div>
+        </div>
+      </div>
+    </div>
+    <p class="tap-hint light">Tap to continue</p>
+  </div>
+
+  <!-- RESULTS -->
+  <section id="results" class="screen" hidden>
+    <div class="res-head">
+      <h1 id="resTitle"></h1>
+      <p id="resSub"></p>
+    </div>
+    <div id="podium" class="podium"></div>
+    <div class="actions">
+      <button id="saveBtn" class="cta pulse" type="button">SAVE WINNER'S SCORE</button>
+      <button id="againBtn" class="cta" type="button">PLAY AGAIN</button>
+      <button id="homeBtn" class="ghost" type="button">Lobby</button>
+    </div>
+  </section>
+
+  <!-- NAME ENTRY -->
+  <section id="entry" class="screen" hidden>
+    <h2 class="entry-title">🏆 <span id="entryWho"></span> made the Top <span id="entryTop"></span>!</h2>
+    <p class="entry-sub">Type the winner's first name</p>
+    <div id="nameBox" class="name-box"></div>
+    <div id="keys" class="keys"></div>
+    <button id="skipBtn" class="ghost" type="button">Skip</button>
+  </section>
+
+  <script src="questions.js"></script>
+  <script src="content.js"></script>
+  <script src="../shared/passport.js" data-game="health-journey"></script>
+  <script src="game.js"></script>
+</body>
+</html>

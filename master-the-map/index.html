@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Master the Map</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="bg" aria-hidden="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="toast" hidden></div>
+
+  <!-- ATTRACT / IDLE -->
+  <section id="attract" class="screen">
+    <header class="brand">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </header>
+    <div class="steps">
+      <span>1️⃣ One question per business</span>
+      <span>2️⃣ Light up the map</span>
+      <span id="stepJourney">3️⃣ Bonus: <b id="personaName"></b>'s journey</span>
+    </div>
+    <div class="attract-body">
+      <div class="panel map-panel">
+        <h2>🗺️ Can you master all <span id="bizCount"></span>?</h2>
+        <div id="attractMap" class="map"></div>
+      </div>
+      <div class="panel board">
+        <h2 id="lbTitle"></h2>
+        <ol id="lb"></ol>
+      </div>
+    </div>
+    <button id="startBtn" class="cta pulse" type="button">TAP TO PLAY</button>
+  </section>
+
+  <!-- COUNTDOWN -->
+  <section id="countdown" class="screen" hidden>
+    <p class="ready">Get ready!</p>
+    <div id="countNum">3</div>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="screen" hidden>
+    <div class="hud">
+      <div id="miniMap" class="mini-map"></div>
+      <div class="score-wrap"><div class="label">SCORE</div><div id="score" class="score">0</div></div>
+      <div id="combo" class="combo">x1</div>
+    </div>
+    <div class="meta"><span id="qnum"></span><span id="qtype" class="chip"></span></div>
+    <div class="timer"><div id="timerFill" class="timer-fill"></div><span id="timerNum"></span></div>
+    <div class="question-card"><p id="question"></p></div>
+    <div id="answers" class="answers"></div>
+  </section>
+
+  <!-- "DID YOU KNOW?" CARD -->
+  <div id="fact" class="fact" hidden>
+    <div class="fact-card">
+      <div id="factHead" class="fact-head">
+        <div id="factTitle"></div>
+        <div id="factSub" class="fact-sub"></div>
+      </div>
+      <div class="fact-body">
+        <div class="fact-biz">
+          <span id="factIcon" class="fact-icon"></span>
+          <div><div id="factName"></div><div id="factGroup"></div></div>
+        </div>
+        <p class="fact-label">DID YOU KNOW?</p>
+        <p id="factText"></p>
+        <div class="fact-bar"><div id="factBar"></div></div>
+        <p class="fact-tap">Tap to continue</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BONUS ROUND INTRO -->
+  <section id="journey" class="screen" hidden>
+    <div class="label">BONUS ROUND</div>
+    <h1 class="journey-title">🧭 <span id="jTitle"></span></h1>
+    <p id="jSub" class="journey-sub"></p>
+    <p class="tap-hint pulse">Tap to start</p>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="over" class="screen" hidden>
+    <div class="over-top">
+      <div>
+        <h1 id="overTitle"></h1>
+        <p id="overSub"></p>
+      </div>
+      <div class="final">
+        <div class="label">FINAL SCORE</div>
+        <div id="finalScore">0</div>
+        <div id="bonusLine"></div>
+      </div>
+    </div>
+    <div id="resultMap" class="map"></div>
+    <div class="over-bottom">
+      <div class="stats">
+        <div><b id="stMastered"></b><span>Businesses</span></div>
+        <div id="stJourneyBox"><b id="stJourney"></b><span>Journey steps</span></div>
+        <div><b id="stStreak"></b><span>Best streak</span></div>
+        <div><b id="stSpeed"></b><span>Avg answer</span></div>
+      </div>
+      <div id="badges" class="badges"></div>
+    </div>
+    <div class="actions">
+      <button id="saveBtn" class="cta pulse" type="button">SAVE MY SCORE</button>
+      <button id="againBtn" class="cta" type="button">PLAY AGAIN</button>
+      <button id="homeBtn" class="ghost" type="button">Leaderboard</button>
+    </div>
+  </section>
+
+  <!-- NAME ENTRY -->
+  <section id="entry" class="screen" hidden>
+    <h2 class="entry-title">🏆 You made the Top <span id="entryTop"></span>!</h2>
+    <p class="entry-sub">Type your first name</p>
+    <div id="nameBox" class="name-box"></div>
+    <div id="keys" class="keys"></div>
+    <button id="skipBtn" class="ghost" type="button">Skip</button>
+  </section>
+
+  <script src="questions.js"></script>
+  <script src="../shared/passport.js" data-game="master-the-map"></script>
+  <script src="game.js"></script>
+</body>
+</html>
