@@ -187,7 +187,8 @@
     } catch { return false; }
   }
 
-  function homeUrl() { return '../index.html'; }
+  // Inside the arcade frame, go straight to the home screen. Opened on its own, load the frame.
+  function homeUrl() { return window.parent !== window ? '../home.html' : '../index.html'; }
 
   function mount(gameId) {
     if (!isBooth() || !document.body) return;

@@ -130,7 +130,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .puff { position: absolute; width: 3cqw; height: 3cqw; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255,255,255,.5); pointer-events: none; z-index: 4; animation: puff .45s ease-out forwards; }
 
 /* ================================================================ LOBBY */
-#lobby { align-items: center; justify-content: space-between; text-align: center; }
+/* Title / middle / start button as fixed rows: the middle only gets the space left over, so the button can never be
+   pushed off the bottom (Safari on Mac could stretch the old flex layout to its content). */
+#lobby { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; justify-items: center; text-align: center; }
 .lobby-bg { position: absolute; inset: 0; display: grid; place-items: center; z-index: -1; overflow: hidden; }
 .lobby-bg .board { width: 120vw; max-width: none; filter: blur(.35vmin) brightness(.45) saturate(1.2); transform: rotate(-6deg) scale(1.05); animation: lobbyPan 30s ease-in-out infinite alternate; }
 .brand { position: relative; }

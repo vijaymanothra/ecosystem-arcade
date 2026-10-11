@@ -4,56 +4,37 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>The Ecosystem Arcade</title>
-<link rel="stylesheet" href="shared/launcher.css">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0820; }
+  #arcade { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+</style>
 </head>
 <body>
-  <div id="bg" class="bg" aria-hidden="true"></div>
-  <canvas id="fx" aria-hidden="true"></canvas>
-  <div id="toast" hidden></div>
+  <!-- The home screen and every game load inside this frame. This page never navigates,
+       so fullscreen (which browsers drop on page changes) stays on while players switch games. -->
+  <iframe id="arcade" src="home.html" allow="fullscreen; autoplay" allowfullscreen title="The Ecosystem Arcade"></iframe>
+  <script>
+  (() => {
+    const frame = document.getElementById('arcade');
+    const root = document.documentElement;
+    const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+    const tell = () => { try { frame.contentWindow.postMessage({ eaFullscreenState: !!fsElement() }, '*'); } catch { /* ignore */ } };
 
-  <header class="brand">
-    <div class="kicker">THE CIGNA GROUP · EMPLOYEE BOOTH</div>
-    <h1>THE ECOSYSTEM ARCADE</h1>
-    <p>5 games · 10 businesses · 1 passport — <b>tap a game to play!</b></p>
-  </header>
-
-  <main id="tiles" class="tiles"></main>
-
-  <footer class="bottom">
-    <section id="passportPanel" class="panel passport"></section>
-    <section class="panel champs">
-      <h2>🏆 Today's Champions</h2>
-      <ol id="champs"></ol>
-    </section>
-    <section class="panel experts">
-      <h2>🌟 Ecosystem Experts</h2>
-      <div id="experts" class="expert-list"></div>
-      <div id="issued" class="issued"></div>
-    </section>
-  </footer>
-
-  <!-- SIGN-IN -->
-  <div id="signin" class="overlay" hidden>
-    <div class="sheet">
-      <div class="sheet-head">
-        <div class="pp-cover">📮</div>
-        <div>
-          <h2>Get your Evernorth Passport</h2>
-          <p>Collect a stamp from every game today. All 5 = <b>Ecosystem Expert!</b></p>
-        </div>
-      </div>
-      <div class="label">TYPE YOUR FIRST NAME</div>
-      <div id="nameBox" class="name-box"></div>
-      <div id="keys" class="keys"></div>
-      <div class="sheet-actions">
-        <button id="guestBtn" class="ghost" type="button">Play as guest</button>
-        <button id="cancelBtn" class="ghost" type="button">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="shared/passport.js"></script>
-  <script src="shared/launcher.js"></script>
-  <script src="shared/fullscreen.js"></script>
+    addEventListener('message', (e) => {
+      if (e.source !== frame.contentWindow || !e.data || !e.data.eaFullscreen) return;
+      if (e.data.eaFullscreen === 'enter' && !fsElement()) {
+        const req = root.requestFullscreen || root.webkitRequestFullscreen;
+        try { const p = req.call(root, { navigationUI: 'hide' }); if (p && p.catch) p.catch(tell); } catch { tell(); }
+      } else if (e.data.eaFullscreen === 'exit' && fsElement()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        tell();
+      }
+    });
+    document.addEventListener('fullscreenchange', tell);
+    document.addEventListener('webkitfullscreenchange', tell);
+    frame.addEventListener('load', () => { tell(); frame.focus(); });
+  })();
+  </script>
 </body>
 </html>

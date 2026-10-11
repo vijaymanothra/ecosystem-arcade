@@ -10,7 +10,7 @@ Everything runs locally in a web browser. There is nothing to install, no server
 |---|---|---|
 | Booth (fullscreen kiosk) | Double-click `start-kiosk.bat` | Double-click `start-kiosk.command` (see first-time note below) |
 | Just try it | Open `index.html` in Edge or Chrome | Open `index.html` in Chrome or Edge |
-| Fullscreen without the launcher | Tap the ⛶ icon in the bottom-right corner | Same |
+| Fullscreen without the launcher | Tap the ⛶ icon in the bottom-right corner, or press `F` | Same |
 | Exit kiosk mode | `Alt+F4` | `Cmd+Q` |
 
 **Mac, first time only:** macOS needs permission to run the launcher. Open Terminal in this folder and run `chmod +x start-kiosk.command`. If macOS then blocks it as "from an unidentified developer", right-click the file → **Open** → **Open**.
@@ -29,7 +29,7 @@ Each game folder also has its own `start-kiosk.bat` if you want one game on a de
 | 🏙️ Evernorth City | `evernorth-city/` | 1 | ~4 min | Why each business matters: build a city, survive news events |
 | 🕵️ Case Files | `case-files/` | 1 | ~3–4 min | How businesses connect end to end: solve cases with red string |
 
-The home screen (`index.html`) shows all five games, today's champions and the Ecosystem Experts wall.
+The home screen (`home.html`, opened through `index.html`) shows all five games, today's champions and the Ecosystem Experts wall.
 
 ## Evernorth Passport
 
@@ -50,6 +50,7 @@ With a keyboard attached:
 |---|---|
 | `Esc` | Back to that game's start screen |
 | `Shift+Esc` | Back to the Arcade home screen |
+| `F` | Enter or leave fullscreen (`Esc` also leaves) |
 | `M` | Mute or unmute sound |
 | `Ctrl+Shift+X` twice | Clear that game's leaderboard |
 | `T` (Route Rush only) | Multi-touch test: check before using Duel mode |
@@ -92,10 +93,11 @@ If you change a question or a business color, update every copy of `questions.js
 
 ```
 ecosystem-arcade/
-├── index.html               Arcade home screen
+├── index.html               Start here: frame that keeps fullscreen on across games
+├── home.html                Arcade home screen (loads inside index.html)
 ├── start-kiosk.bat          Windows launcher
 ├── start-kiosk.command      Mac launcher
-├── shared/                  passport.js, launcher.js, launcher.css
+├── shared/                  passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/
 ├── route-rush/
 ├── health-journey/
