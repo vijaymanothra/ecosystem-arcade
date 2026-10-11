@@ -94,8 +94,10 @@
       const chips = el('div', 'chips');
       chips.append(el('span', null, t.time), el('span', null, t.players));
       const top = champs[g.id];
+      const art = el('div', 'art');
+      art.append(el('span', null, t.art)); // inner span lets the picture scale with the space it gets
       tile.append(
-        el('div', 'art', t.art),
+        art,
         el('div', 'tn', g.name),
         el('div', 'tt', t.tagline),
         chips,
@@ -106,7 +108,19 @@
       tile.addEventListener('click', () => choose(g.id));
       box.append(tile);
     });
+    fitArt();
   }
+
+  // Each tile's picture shrinks when its text needs the room (see .tile .art). Give every tile the smallest
+  // of those sizes so the five pictures stay the same size as each other.
+  function fitArt() {
+    const box = $('#tiles');
+    box.style.removeProperty('--art-h');
+    const arts = [...box.querySelectorAll('.art')];
+    if (arts.length) box.style.setProperty('--art-h', `${Math.min(...arts.map((a) => a.clientHeight))}px`);
+  }
+  addEventListener('resize', fitArt);
+  if (document.fonts) document.fonts.ready.then(fitArt);
 
   function renderPassport() {
     const box = $('#passportPanel');

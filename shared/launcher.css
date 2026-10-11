@@ -64,7 +64,12 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .tile.spot { animation: spot 1.4s ease-in-out; }
 .tile::after { content: ''; position: absolute; inset: -50%; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.22) 50%, transparent 60%); transform: translateX(-100%); pointer-events: none; }
 .tile.spot::after { animation: shine 1.4s ease-in-out; }
-.tile .art { font-size: clamp(40px, 10.5vmin, 150px); line-height: 1; text-align: center; margin: .6vmin 0; filter: drop-shadow(0 1.2vmin 1vmin rgba(0,0,0,.35)); animation: bob 3s ease-in-out infinite; }
+/* The picture is the only part of a tile that can shrink: when the text wraps onto more lines (taller 16:10 screens,
+   wider Mac fonts) it gets smaller so ▶ PLAY is never cut off. With room to spare it keeps its full size.
+   launcher.js sets --art-h so all five tiles use the same (smallest) picture size. */
+.tile .art { height: var(--art-h, clamp(40px, 10.5vmin, 150px)); flex: 0 1 auto; min-height: 0; container-type: size; text-align: center; margin: .6vmin 0; filter: drop-shadow(0 1.2vmin 1vmin rgba(0,0,0,.35)); animation: bob 3s ease-in-out infinite; }
+.tile .art > span { display: block; font-size: clamp(40px, 10.5vmin, 150px); font-size: 100cqh; line-height: 1; }
+.tile > :not(.art) { flex-shrink: 0; }
 .tile .tn { font-size: clamp(17px, 3.1vmin, 40px); font-weight: 900; line-height: 1.02; }
 .tile .tt { font-size: clamp(12px, 2vmin, 24px); font-weight: 600; opacity: .95; line-height: 1.25; }
 .tile .chips { display: flex; flex-wrap: wrap; gap: .6vmin; margin-top: auto; }
