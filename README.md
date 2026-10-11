@@ -10,6 +10,7 @@ Everything runs locally in a web browser. There is nothing to install, no server
 |---|---|---|
 | Booth (fullscreen kiosk) | Double-click `start-kiosk.bat` | Double-click `start-kiosk.command` (see first-time note below) |
 | Just try it | Open `index.html` in Edge or Chrome | Open `index.html` in Chrome or Edge |
+| Fullscreen without the launcher | Tap the ⛶ icon in the bottom-right corner | Same |
 | Exit kiosk mode | `Alt+F4` | `Cmd+Q` |
 
 **Mac, first time only:** macOS needs permission to run the launcher. Open Terminal in this folder and run `chmod +x start-kiosk.command`. If macOS then blocks it as "from an unidentified developer", right-click the file → **Open** → **Open**.
