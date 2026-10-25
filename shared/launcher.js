@@ -160,16 +160,50 @@
     box.append(top, stamps, actions);
   }
 
-  function renderChamps() {
+  // Today's Champions: one game's top 3 at a time, moving on every few seconds. Tap an icon to jump.
+  const CHAMP_ROTATE_MS = 6000;
+  let champIdx = 0;
+  let champTimer = 0;
+  function renderChamps(animate) {
+    const g = P.GAMES[champIdx];
+    const panel = $('#champsPanel');
+    panel.style.setProperty('--c1', g.color);
+    panel.style.setProperty('--rotate-ms', `${CHAMP_ROTATE_MS}ms`);
+
+    const dots = $('#champDots');
+    dots.replaceChildren();
+    P.GAMES.forEach((gg, i) => {
+      const d = el('button', i === champIdx ? 'on' : '', gg.icon);
+      d.type = 'button';
+      d.style.setProperty('--c1', gg.color);
+      d.setAttribute('aria-label', `${gg.name} champions`);
+      d.setAttribute('aria-pressed', String(i === champIdx));
+      d.addEventListener('click', () => { sfx.tap(); showChamp(i); });
+      dots.append(d);
+    });
+
+    const head = $('#champGame');
+    head.replaceChildren(el('span', null, g.icon), el('span', null, g.name));
     const ol = $('#champs');
     ol.replaceChildren();
-    for (const { game, top } of P.champions()) {
-      const li = el('li');
-      li.append(el('span', 'gi', game.icon), el('span', 'gn', game.name));
-      if (top) li.append(el('span', 'who', top.name), el('span', 'sc', top.score.toLocaleString()));
-      else li.append(el('span', 'none', 'up for grabs'));
+    const top = P.podium(g.id, 3);
+    ['🥇', '🥈', '🥉'].forEach((medal, i) => {
+      const e = top[i];
+      const li = el('li', `p${i + 1}`);
+      li.append(el('span', 'medal', medal));
+      if (e) li.append(el('span', 'who', e.name), el('span', 'sc', e.score.toLocaleString()));
+      else li.append(el('span', 'none', i === 0 ? 'up for grabs — play now!' : 'up for grabs'));
       ol.append(li);
+    });
+    if (animate) {
+      for (const n of [head, ol, $('.champ-timer')]) { n.classList.remove('swap'); void n.offsetWidth; n.classList.add('swap'); }
     }
+  }
+  function showChamp(i) {
+    champIdx = (i + P.GAMES.length) % P.GAMES.length;
+    renderChamps(true);
+    clearTimeout(champTimer);
+    champTimer = setTimeout(() => showChamp(champIdx + 1), CHAMP_ROTATE_MS);
   }
 
   function renderExperts() {
@@ -282,6 +316,7 @@
   }, 5000);
   // refresh champions periodically (other tabs / games update storage)
   setInterval(renderAll, 30000);
+  if (window.Leaderboard) window.Leaderboard.onChange(renderAll);
 
   function buildBg() {
     const bg = $('#bg');
@@ -318,4 +353,5 @@
   buildBg();
   buildKeys();
   renderAll();
+  showChamp(0);
 })();

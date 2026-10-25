@@ -21,8 +21,13 @@
 
   <footer class="bottom">
     <section id="passportPanel" class="panel passport"></section>
-    <section class="panel champs">
-      <h2>🏆 Today's Champions</h2>
+    <section id="champsPanel" class="panel champs">
+      <div class="champs-head">
+        <h2>🏆 Today's Champions</h2>
+        <div id="champDots" class="champ-dots"></div>
+      </div>
+      <div id="champGame" class="champ-game"></div>
+      <div class="champ-timer" aria-hidden="true"><i></i></div>
       <ol id="champs"></ol>
     </section>
     <section class="panel experts">
@@ -53,6 +58,8 @@
   </div>
 
   <script src="shared/passport.js"></script>
+  <script src="shared/config.js"></script>
+  <script src="shared/leaderboard.js"></script>
   <script src="shared/launcher.js"></script>
   <script src="shared/fullscreen.js"></script>
 </body>
