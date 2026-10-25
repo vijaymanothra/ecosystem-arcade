@@ -157,17 +157,12 @@
     return { burst };
   })();
 
-  // ================================================================ leaderboard (solo only, localStorage on this kiosk)
+  // ================================================================ leaderboard (solo only, shared/leaderboard.js)
   const today = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
-  function loadLB() {
-    try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; } catch { return []; }
-  }
-  function saveLB(lb) {
-    try { localStorage.setItem(LB_KEY, JSON.stringify(lb)); } catch { /* storage unavailable */ }
-  }
+  const loadLB = () => window.Leaderboard.load(LB_KEY);
   function boardEntries() {
     const all = loadLB();
     const list = CFG.leaderboardScope === 'today' ? all.filter((e) => e.day === today()) : all;
@@ -179,11 +174,7 @@
   }
   function addScore(name, score, accuracy) {
     const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, accuracy, day: today() };
-    const all = loadLB();
-    all.push(entry);
-    all.sort((a, b) => b.score - a.score);
-    saveLB(all.slice(0, 2000));
-    return entry;
+    return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today'
@@ -1134,7 +1125,7 @@
     else if (k === 'm' && !e.ctrlKey && G.screen !== 'entry') toast(Sound.toggle() ? '🔊 Sound on' : '🔇 Sound off');
     else if (e.ctrlKey && e.shiftKey && k === 'x') {
       if (Date.now() - clearArmed < 3000) {
-        saveLB([]);
+        window.Leaderboard.clear(LB_KEY);
         renderLeaderboard();
         toast('Leaderboard cleared');
         clearArmed = 0;
@@ -1150,4 +1141,12 @@
   $('#subtitle').textContent = CFG.subtitle;
   buildKeys();
   goAttract();
+  // shared scores arrived: refresh the board, unless it is showing a just-saved score
+  window.Leaderboard.onChange(() => { if (G.screen === 'attract' && !$('#lb .new')) renderLeaderboard(); });
+  // warn before leaving for the Arcade mid-game or with an unsaved score (Duel scores are never saved)
+  window.Passport.setLeaveGuard(() => {
+    if (['countdown', 'play'].includes(G.screen)) return 'playing';
+    if (G.screen === 'entry' || (G.screen === 'soloOver' && !$('#saveBtn').hidden)) return 'unsaved';
+    return null;
+  });
 })();

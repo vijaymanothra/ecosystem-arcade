@@ -151,17 +151,12 @@
     return { burst };
   })();
 
-  // ---------------------------------------------------------------- leaderboard (localStorage on this kiosk)
+  // ---------------------------------------------------------------- leaderboard (shared/leaderboard.js)
   const today = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
-  function loadLB() {
-    try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; } catch { return []; }
-  }
-  function saveLB(lb) {
-    try { localStorage.setItem(LB_KEY, JSON.stringify(lb)); } catch { /* storage unavailable */ }
-  }
+  const loadLB = () => window.Leaderboard.load(LB_KEY);
   function boardEntries() {
     const all = loadLB();
     const list = CFG.leaderboardScope === 'today' ? all.filter((e) => e.day === today()) : all;
@@ -176,11 +171,7 @@
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name, score, mastered, total, day: today(),
     };
-    const all = loadLB();
-    all.push(entry);
-    all.sort((a, b) => b.score - a.score);
-    saveLB(all.slice(0, 2000));
-    return entry;
+    return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today'
@@ -748,7 +739,7 @@
     else if (e.key.toLowerCase() === 'm' && !e.ctrlKey && state.screen !== 'entry') toast(Sound.toggle() ? '🔊 Sound on' : '🔇 Sound off');
     else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'x') {
       if (Date.now() - clearArmed < 3000) {
-        saveLB([]);
+        window.Leaderboard.clear(LB_KEY);
         renderLeaderboard();
         toast('Leaderboard cleared');
         clearArmed = 0;
@@ -771,4 +762,12 @@
   buildKeys();
   renderAttractMap();
   goAttract();
+  // shared scores arrived: refresh the board, unless it is showing a just-saved score
+  window.Leaderboard.onChange(() => { if (state.screen === 'attract' && !$('#lb .new')) renderLeaderboard(); });
+  // warn before leaving for the Arcade mid-game or with an unsaved score
+  window.Passport.setLeaveGuard(() => {
+    if (['countdown', 'game', 'journey'].includes(state.screen)) return 'playing';
+    if (state.screen === 'entry' || (state.screen === 'over' && !$('#saveBtn').hidden)) return 'unsaved';
+    return null;
+  });
 })();

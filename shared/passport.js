@@ -96,11 +96,21 @@
   }
 
   // ---------------------------------------------------------------- champions (reads each game's leaderboard)
+  // Today's top `n` for one game, one place per player (their best score).
+  function podium(gameId, n) {
+    const g = GAME[gameId];
+    if (!g) return [];
+    const best = new Map();
+    for (const e of read(g.lb, [])) {
+      if (!e || e.day !== today()) continue;
+      const k = keyOf(e.name);
+      const b = best.get(k);
+      if (!b || e.score > b.score) best.set(k, e);
+    }
+    return [...best.values()].sort((a, b) => b.score - a.score).slice(0, n || 3);
+  }
   function champions() {
-    return GAMES.map((g) => {
-      const list = read(g.lb, []).filter((e) => e && e.day === today()).sort((a, b) => b.score - a.score);
-      return { game: g, top: list[0] || null };
-    });
+    return GAMES.map((g) => ({ game: g, top: podium(g.id, 1)[0] || null }));
   }
 
   // ---------------------------------------------------------------- in-game chrome (booth mode)
@@ -131,6 +141,19 @@
       .eap-stamp .row span{filter:grayscale(1) opacity(.25)} .eap-stamp .row span.on{filter:none}
       .eap-stamp .x{margin-top:1vmin;font:900 clamp(16px,3vmin,40px) Impact,"Arial Black",sans-serif;color:#12935a;letter-spacing:.05em}
       .eap-stamp.out{animation:eapOut .4s ease-in forwards}
+      .eap-leave{position:fixed;inset:0;z-index:9995;display:grid;place-items:center;background:rgba(5,5,20,.72);backdrop-filter:blur(4px);
+        font-family:"Segoe UI",system-ui,sans-serif;animation:eapFade .2s ease both}
+      .eap-leave .box{width:min(92vw,560px);background:#16123a;color:#fff;border:2px solid rgba(255,255,255,.16);border-radius:22px;padding:28px 28px 24px;
+        text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.55);animation:eapPop .3s cubic-bezier(.3,1.5,.5,1) both}
+      .eap-leave .ic{font-size:clamp(40px,7vmin,64px);line-height:1}
+      .eap-leave h2{margin:10px 0 8px;font:900 clamp(22px,3.8vmin,36px) "Segoe UI",system-ui,sans-serif;color:#ffd23f}
+      .eap-leave p{margin:0 0 22px;font-size:clamp(15px,2.3vmin,21px);line-height:1.4;color:#d9d4ff}
+      .eap-leave .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+      .eap-leave button{min-height:52px;padding:12px 26px;border-radius:999px;font:800 clamp(15px,2.3vmin,21px) "Segoe UI",system-ui,sans-serif;cursor:pointer}
+      .eap-leave .stay{border:0;background:#ffd23f;color:#1a1240;box-shadow:0 5px 0 #b38a00}
+      .eap-leave .go{border:2px solid rgba(255,255,255,.35);background:transparent;color:#fff}
+      @keyframes eapFade{from{opacity:0}}
+      @keyframes eapPop{from{transform:scale(.85);opacity:0}}
       @keyframes eapSlam{0%{transform:translateX(-50%) rotate(-8deg) scale(2.6);opacity:0}60%{transform:translateX(-50%) rotate(-3deg) scale(.95);opacity:1}100%{transform:translateX(-50%) rotate(-3deg) scale(1);opacity:1}}
       @keyframes eapOut{to{transform:translateX(-50%) translateY(-30vh) rotate(-3deg);opacity:0}}
     `;
@@ -190,6 +213,71 @@
   // Inside the arcade frame, go straight to the home screen. Opened on its own, load the frame.
   function homeUrl() { return window.parent !== window ? '../home.html' : '../index.html'; }
 
+  // ---------------------------------------------------------------- leaving mid-game
+  // A game registers a guard that says what leaving now would lose:
+  //   'playing' — a round is under way (no score, no stamp yet)
+  //   'unsaved' — the round is over and its score qualifies, but hasn't been saved
+  //   null      — nothing to lose
+  let leaveGuard = null;
+  let leaving = false;
+  const LEAVE_TEXT = {
+    playing: { icon: '⚠️', title: 'Leave this game?', body: "You're in the middle of a game. If you leave now, your score won't be saved and you won't get this game's passport stamp.", stay: 'Keep playing' },
+    unsaved: { icon: '🏆', title: "Your score isn't saved yet!", body: 'Save it to put your name on the leaderboard. If you leave now, this score will be lost.', stay: 'Go back and save' },
+  };
+  function setLeaveGuard(fn) { leaveGuard = typeof fn === 'function' ? fn : null; }
+  function leaveRisk() { try { return (leaveGuard && leaveGuard()) || null; } catch { return null; } }
+
+  // Navigations started here (idle timeout, staff keys, a confirmed leave) never ask again.
+  function goHome() { leaving = true; location.href = homeUrl(); }
+
+  // Ask before leaving when there is something to lose; otherwise go straight home.
+  function requestHome() {
+    const risk = leaveRisk();
+    if (!risk || !LEAVE_TEXT[risk]) return goHome();
+    if (document.querySelector('.eap-leave')) return;
+    injectStyles();
+    const t = LEAVE_TEXT[risk];
+    const wrap = document.createElement('div');
+    wrap.className = 'eap-leave';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-modal', 'true');
+    const box = document.createElement('div');
+    box.className = 'box';
+    const ic = document.createElement('div');
+    ic.className = 'ic';
+    ic.textContent = t.icon;
+    const h = document.createElement('h2');
+    h.textContent = t.title;
+    const p = document.createElement('p');
+    p.textContent = t.body;
+    const row = document.createElement('div');
+    row.className = 'row';
+    const stay = document.createElement('button');
+    stay.type = 'button';
+    stay.className = 'stay';
+    stay.textContent = t.stay;
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'go';
+    go.textContent = 'Leave anyway';
+    // keep taps on the dialog away from the game underneath
+    for (const type of ['pointerdown', 'click']) wrap.addEventListener(type, (e) => e.stopPropagation());
+    stay.addEventListener('click', () => wrap.remove());
+    go.addEventListener('click', goHome);
+    row.append(stay, go);
+    box.append(ic, h, p, row);
+    wrap.append(box);
+    document.body.append(wrap);
+    stay.focus();
+  }
+
+  // Closing the tab or using the browser's back button mid-game (players on their own devices).
+  window.addEventListener('beforeunload', (e) => {
+    if (leaving || !leaveRisk()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
   function mount(gameId) {
     if (!isBooth() || !document.body) return;
     injectStyles();
@@ -208,7 +296,7 @@
       e.preventDefault();
       e.stopPropagation();
       home.classList.add('holding');
-      holdT = setTimeout(() => { location.href = homeUrl(); }, HOLD_MS);
+      holdT = setTimeout(() => { home.classList.remove('holding'); requestHome(); }, HOLD_MS);
     });
     home.addEventListener('pointerup', cancel);
     home.addEventListener('pointerleave', cancel);
@@ -225,13 +313,13 @@
     // idle → back to the launcher
     let last = Date.now();
     document.addEventListener('pointerdown', () => { last = Date.now(); touch(); }, true);
-    setInterval(() => { if (Date.now() - last > IDLE_HOME_SEC * 1000) location.href = homeUrl(); }, 5000);
+    setInterval(() => { if (Date.now() - last > IDLE_HOME_SEC * 1000) goHome(); }, 5000);
     // Esc with Shift = straight home (staff)
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.shiftKey) location.href = homeUrl(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.shiftKey) goHome(); });
     void gameId;
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, champions, mount };
+  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, setLeaveGuard, mount };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

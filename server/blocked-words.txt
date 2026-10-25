@@ -1,0 +1,4 @@
+# Names containing any word below are refused by the scores server.
+# One word per line, any case. Spaces and punctuation in names are ignored when matching,
+# so "b a d" matches "bad". Lines starting with # are comments.
+# Restart the server after editing.

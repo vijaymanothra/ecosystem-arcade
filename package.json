@@ -1,0 +1,12 @@
+{
+  "name": "ecosystem-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Five touchscreen games with shared leaderboards",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

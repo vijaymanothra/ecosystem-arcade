@@ -110,13 +110,36 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .ghost { font-size: clamp(13px, 2.2vmin, 28px); font-weight: 700; color: #fff; padding: .9vmin 2.6vmin; border-radius: 999px; border: 2px solid rgba(255,255,255,.3); }
 .progress-txt { font-size: clamp(11px, 1.9vmin, 22px); font-weight: 700; color: var(--accent); }
 
+/* Today's Champions: one game's podium at a time (launcher.js sets --c1 to that game's color) */
+.champs { --c1: #7b4dff; display: flex; flex-direction: column; }
+.champs-head { display: flex; align-items: center; justify-content: space-between; gap: 1vmin; margin-bottom: .6vmin; }
+.champs-head h2 { margin-bottom: 0; white-space: nowrap; }
+.champ-dots { display: flex; gap: .6vmin; flex-shrink: 0; }
+.champ-dots button { width: clamp(26px, 3.8vmin, 46px); height: clamp(26px, 3.8vmin, 46px); padding: 0; border-radius: 50%; display: grid; place-items: center;
+  font-size: clamp(13px, 2vmin, 24px); border: 2px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06);
+  filter: grayscale(1) opacity(.5); transition: filter .25s, transform .25s, border-color .25s, background .25s; }
+.champ-dots button.on { filter: none; transform: scale(1.12); border-color: var(--c1); background: color-mix(in srgb, var(--c1) 40%, transparent); }
+.champ-game { display: flex; align-items: center; gap: .8vmin; font-size: clamp(14px, 2.3vmin, 28px); font-weight: 900; color: #fff;
+  text-shadow: 0 0 2vmin color-mix(in srgb, var(--c1) 80%, transparent); }
+.champ-timer { height: .5vmin; min-height: 3px; margin: .6vmin 0 .8vmin; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+.champ-timer i { display: block; height: 100%; width: 100%; background: var(--c1); transform-origin: left; transform: scaleX(0); }
+.champ-timer.swap i { animation: champTimer var(--rotate-ms, 6s) linear forwards; }
 #champs { list-style: none; display: flex; flex-direction: column; gap: .5vmin; }
-#champs li { display: flex; align-items: center; gap: 1.2vmin; font-size: clamp(12px, 2vmin, 24px); font-weight: 700; padding: .3vmin 1vmin; border-radius: 1vmin; background: rgba(255,255,255,.05); }
-#champs .gi { width: 1.6em; text-align: center; }
-#champs .gn { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#champs .who { font-weight: 900; }
+#champs li { display: flex; align-items: center; gap: 1.2vmin; font-size: clamp(12px, 2.1vmin, 26px); font-weight: 700; padding: .35vmin 1vmin; border-radius: 1vmin; background: rgba(255,255,255,.05); }
+#champs li.p1 { background: linear-gradient(90deg, rgba(255,210,63,.28), rgba(255,210,63,.06)); font-size: clamp(13px, 2.4vmin, 30px); }
+#champs .medal { width: 1.6em; text-align: center; }
+#champs .who { flex: 1; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #champs .sc { color: var(--accent); min-width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
-#champs .none { color: var(--muted); font-weight: 600; font-style: italic; }
+#champs .none { flex: 1; color: var(--muted); font-weight: 600; font-style: italic; }
+.champ-game.swap, #champs.swap { animation: champIn .45s ease both; }
+#champs.swap li { animation: champIn .45s ease both; }
+#champs.swap li:nth-child(2) { animation-delay: .08s; }
+#champs.swap li:nth-child(3) { animation-delay: .16s; }
+@keyframes champIn { from { opacity: 0; transform: translateX(3vmin); } }
+@keyframes champTimer { to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .champ-game.swap, #champs.swap, #champs.swap li { animation: none; }
+}
 .expert-list { display: flex; flex-wrap: wrap; gap: .8vmin; }
 .expert { padding: .5vmin 1.6vmin; border-radius: 999px; background: linear-gradient(90deg, #ffd23f, #ff7a1a); color: #1a1240; font-weight: 900; font-size: clamp(12px, 2vmin, 24px); animation: pop .5s backwards; }
 .expert-empty { color: var(--muted); font-size: clamp(12px, 2vmin, 24px); font-weight: 600; }
