@@ -33,6 +33,17 @@ The launchers open the games as local files, so each kiosk keeps its own scores.
 
 The home screen (`home.html`, opened through `index.html`) shows all five games, today's champions and the Ecosystem Experts wall. **Today's Champions** shows one game's top 3 at a time and moves to the next game every 6 seconds. Tap a game icon in that panel to jump to it. Each player appears once per game, with their best score of the day.
 
+## Playing on phones
+
+The arcade is built for a landscape kiosk, but it also works on phones (for example from the hosted link). Phone-only adjustments apply below 640px wide, or under 500px tall in landscape. Kiosk, laptop and desktop screens never match, so they look exactly the same as before.
+
+- **Home screen:** a normal scrolling page with each game as a full-width row (picture, description, time, today's champion and ▶ PLAY).
+- **The 🏠 button** in games shrinks to a small icon in the corner, so it doesn't cover scores or timers.
+- **The Health Journey and Case Files** need a wide screen. On a phone held upright, they show *"Turn your phone sideways"* until it's rotated.
+- **Master the Map, Route Rush and Evernorth City** play in either orientation.
+
+To preview on a laptop: open the arcade in Chrome or Edge, press `F12`, then `Ctrl+Shift+M`, pick a phone, and reload.
+
 ## Evernorth Passport
 
 1. A player taps a game on the home screen and types their first name, or chooses **Play as guest**.
@@ -151,6 +162,38 @@ SELECT game, name, MAX(score) AS best FROM scores GROUP BY game, name ORDER BY g
 
 **Checking the server:** http://localhost:3000/api/health answers `{"ok":true}` when the server is up.
 
+## Hosting on AWS
+
+**Step-by-step guide: [aws/README.md](aws/README.md)**. It covers the one-time setup, deploying, everyday tasks, the pre-event checklist and troubleshooting. Summary:
+
+`aws/` deploys the arcade as a serverless setup. There are no servers to manage, it scales on its own, and it typically costs cents to a few dollars a month at event traffic:
+
+```
+Players ─► CloudFront ─┬─ /*      ─► S3 bucket (the games)
+                       └─ /api/*  ─► API Gateway ─► Lambda ─► DynamoDB (scores)
+```
+
+The games and `/api` share one address, so `scoresApi: 'auto'` works without changes. CloudFront keeps the score lists for 5 seconds, so hundreds of open screens cost about one database lookup every few seconds. The Lambda API follows the same rules as the local server, because both use `server/scores-core.js`, and `npm test` checks both.
+
+**One-time setup:** install the AWS CLI v2, create an IAM user with an access key, then run `aws configure --profile arcade`. Your organization may limit which regions you can use. This account allows only `ap-southeast-2` (Sydney).
+
+| Command | What it does |
+|---|---|
+| `npm run aws:deploy` | Creates or updates everything, uploads the games, prints the live address. The first run takes 5–10 minutes. |
+| `npm run aws:deploy -- --no-cloudfront` | Deploys without CloudFront or S3: Lambda also serves the games, at the API Gateway address. Use it while the account isn't verified for CloudFront. |
+| `npm run aws:deploy -- --cloudfront` | Switches to the full CloudFront setup. The address changes to a `cloudfront.net` one, and the scores are kept. |
+| `npm run aws:deploy -- --site-only` | Uploads changed game files only (seconds, CloudFront setup only; without CloudFront every update is a full deploy of about 1 minute) |
+| `npm run aws:remove` | Removes everything except the scores table, and prints the command to delete that too |
+
+The deploy remembers whether you chose CloudFront, so a plain `npm run aws:deploy` keeps the same setup.
+
+Add `-- --profile name` or `-- --region code` to use a different AWS profile or region.
+
+- **Secrets:** the first deploy creates `aws/.deploy.local.json` with the admin token for wiping scores. It isn't committed, so keep it safe. Wiping works the same as above, using the live address: `curl -X DELETE "https://xxxx.cloudfront.net/api/scores?game=route-rush" -H "Authorization: Bearer <adminToken>"`.
+- **Scores:** they live in a DynamoDB table with point-in-time recovery, so it can be restored to any second in the last 35 days. Removing the stack keeps the table.
+- **New AWS accounts:** CloudFront may refuse with *"Your account must be verified before you can add new CloudFront resources"*. Open a case in AWS Support (Account and billing, which is free), include that message, and deploy with `--no-cloudfront` until AWS confirms. A failed first deploy is cleaned up automatically on the next run.
+- **Without CloudFront** there's no worldwide caching: every page load and score refresh reaches Lambda. That's fine for an event, since files are kept in memory and compressed, and browsers only re-download changed files. New accounts can run only 10 copies of the function at once, though. Before a busy event, ask for more in **Service Quotas → AWS Lambda → Concurrent executions** (for example 1,000; it's free).
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -172,8 +215,12 @@ ecosystem-arcade/
 ├── home.html                Arcade home screen (loads inside index.html)
 ├── start-kiosk.bat          Windows launcher
 ├── start-kiosk.command      Mac launcher
-├── package.json             `npm start` runs the scores server
-├── server/                  server.js (scores API + web server), blocked-words.txt
+├── package.json             `npm start`, `npm test`, `npm run aws:deploy` / `aws:remove`
+├── server/                  server.js (scores API + web server), scores-core.js (score rules
+│                            shared with AWS), blocked-words.txt
+├── aws/                     template.yaml (AWS resources), lambda/handler.js, deploy + remove scripts,
+│                            site-files.mjs (which files are published)
+├── test/                    API tests for the local server and the AWS version
 ├── shared/                  config.js (scores server address), leaderboard.js,
 │                            passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/

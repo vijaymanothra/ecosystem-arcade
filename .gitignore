@@ -1,2 +1,8 @@
 server/data/
 node_modules/
+
+# AWS deploy: build output, and the secrets file (never commit it)
+aws/.build/
+aws/.build-packaged.yaml
+aws/.site/
+aws/.deploy.local.json

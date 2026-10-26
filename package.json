@@ -4,7 +4,10 @@
   "private": true,
   "description": "Five touchscreen games with shared leaderboards",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "test": "node --test",
+    "aws:deploy": "node aws/deploy.mjs",
+    "aws:remove": "node aws/remove.mjs"
   },
   "engines": {
     "node": ">=22.13"
