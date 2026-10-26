@@ -397,6 +397,24 @@ body.rush #arena::after {
   #arena.duel { flex-direction: column; }
 }
 
+/* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
+@media (max-width: 640px), (max-height: 500px) {
+  .topbar { padding-right: 38px; } /* room for the small 🏠 in the corner */
+}
+@media (max-width: 640px) {
+  /* the start screen scrolls instead of squeezing, so both play buttons stay reachable */
+  #attract { display: flex; flex-direction: column; align-items: center; overflow-y: auto; gap: 12px; }
+  #attract .brand { padding: 0 34px; }
+  .brand h1 { font-size: 50px; }
+  .brand p { font-size: 15px; }
+  .attract-body { flex: none; gap: 12px; }
+  .attract-body > .panel { flex: none; padding: 12px; border-radius: 14px; }
+  .panel h2 { font-size: 17px; margin-bottom: 8px; }
+  #lb { flex: none; }
+  #lb li { font-size: 15px; }
+  #lb li.empty { flex: none; padding: 10px 0; }
+}
+
 /* ---------- keyframes ---------- */
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2vmin); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }

@@ -170,6 +170,82 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .bottom { grid-template-columns: 1fr; }
 }
 
+/* ---------- phones: one page that scrolls, games as full-width rows ----------
+   Only phone-sized screens (narrower than 640px, or landscape phones under 500px tall) match,
+   so kiosk, laptop and desktop screens keep the one-screen layout above. */
+@media (max-width: 640px), (max-height: 500px) {
+  html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+  body { gap: 14px; padding: 14px 12px 20px; }
+  .bg span { opacity: .05; }
+  #toast { font-size: 14px; padding: 10px 18px; bottom: 16px; }
+
+  .kicker { font-size: 10px; letter-spacing: .16em; padding: 4px 12px; box-shadow: 0 2px 0 #b38a00; }
+  .brand h1 { font-size: clamp(30px, 9vw, 46px); margin-top: 8px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.45)); }
+  .brand p { font-size: 14px; margin-top: 4px; }
+
+  .tiles { flex: none; grid-template-columns: 1fr; gap: 12px; overflow: visible; }
+  .tile {
+    display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: start;
+    grid-template-areas: "art tn play" "art tt tt" "art chips chips" "art best best";
+    column-gap: 12px; row-gap: 5px; padding: 14px; border-radius: 18px; border-width: 2px;
+    box-shadow: 0 5px 0 rgba(0,0,0,.35), 0 8px 18px rgba(0,0,0,.4);
+  }
+  .tile:active { transform: translateY(3px) scale(.99); }
+  .tile .art { grid-area: art; width: 58px; height: 52px; margin: 0; align-self: center; filter: drop-shadow(0 4px 4px rgba(0,0,0,.35)); }
+  .tile .tn { grid-area: tn; font-size: 19px; align-self: center; }
+  .tile .tt { grid-area: tt; font-size: 13.5px; }
+  .tile .chips { grid-area: chips; margin-top: 2px; gap: 6px; }
+  .tile .chips span { font-size: 11px; padding: 2px 8px; }
+  .tile .best { grid-area: best; font-size: 12px; min-height: 0; }
+  .tile .play { grid-area: play; align-self: center; font-size: 13px; letter-spacing: .04em; padding: 7px 14px; box-shadow: 0 3px 0 rgba(0,0,0,.3); }
+  .tile .new { top: 8px; left: 8px; right: auto; font-size: 9px; padding: 2px 7px; }
+  .tile .stamped { top: auto; bottom: 12px; right: 12px; font-size: 10px; border-width: 2px; padding: 2px 8px; border-radius: 6px; transform: rotate(8deg); }
+
+  .bottom { grid-template-columns: 1fr; gap: 12px; }
+  .panel { border-radius: 16px; padding: 14px; overflow: visible; }
+  .panel h2 { font-size: 18px; margin-bottom: 8px; }
+  .passport { gap: 10px; }
+  .passport .pp-top { gap: 12px; }
+  .passport .pp-icon { font-size: 34px; }
+  .passport .pp-name { font-size: 18px; }
+  .passport .pp-sub { font-size: 13px; }
+  .stamps { gap: 6px; }
+  .stamp-slot { padding: 6px 2px; border-width: 2px; border-radius: 10px; font-size: 9.5px; gap: 2px; }
+  .stamp-slot .si { font-size: 22px; }
+  .pp-actions .btn, .pp-actions .ghost { flex: 1; text-align: center; font-size: 15px; padding: 11px 16px; }
+  .btn { box-shadow: 0 3px 0 #b36b00; }
+
+  .champs-head { flex-wrap: wrap; row-gap: 8px; }
+  .champ-dots { gap: 6px; }
+  .champ-dots button { width: 34px; height: 34px; font-size: 16px; }
+  .champ-game { font-size: 16px; gap: 6px; }
+  .champ-timer { height: 3px; margin: 6px 0 8px; }
+  #champs { gap: 5px; }
+  #champs li { font-size: 15px; padding: 6px 10px; border-radius: 8px; gap: 8px; }
+  #champs li.p1 { font-size: 16px; }
+  .expert-list { gap: 6px; }
+  .expert, .expert-empty { font-size: 14px; }
+  .expert { padding: 4px 12px; }
+  .issued { font-size: 13px; margin-top: 8px; }
+
+  /* sign-in sheet: real-size keys for thumbs */
+  .overlay { padding: 12px; align-items: start; overflow-y: auto; }
+  .sheet { padding: 18px 14px; gap: 12px; border-radius: 18px; border-width: 2px; }
+  .sheet-head { gap: 12px; }
+  .pp-cover { width: 50px; height: 64px; font-size: 28px; border-radius: 8px; border-width: 2px; }
+  .sheet h2 { font-size: 22px; }
+  .sheet p { font-size: 14px; }
+  .name-box { min-width: 0; width: 100%; height: 52px; font-size: 32px; border-bottom-width: 4px; }
+  .keys { gap: 6px; }
+  .key { height: 46px; font-size: 20px; border-radius: 10px; box-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .sheet-actions { gap: 10px; }
+  .sheet-actions .ghost { font-size: 15px; padding: 10px 18px; }
+}
+/* landscape phones: two columns of game rows and panels side by side */
+@media (max-height: 500px) and (min-width: 641px) {
+  .tiles, .bottom { grid-template-columns: 1fr 1fr; }
+}
+
 @keyframes rainbow { to { background-position: 200% 0; } }
 @keyframes driftUp { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(-130vh) rotate(200deg); } }
 @keyframes tileIn { from { transform: translateY(40vmin) rotate(6deg); opacity: 0; } to { transform: none; opacity: 1; } }
