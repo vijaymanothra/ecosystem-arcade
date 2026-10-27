@@ -162,6 +162,19 @@ SELECT game, name, MAX(score) AS best FROM scores GROUP BY game, name ORDER BY g
 
 **Checking the server:** http://localhost:3000/api/health answers `{"ok":true}` when the server is up.
 
+## Hosting on Azure
+
+To host the arcade in an Azure subscription, use `azure/`. It deploys a Static Web App (the games, plus the scores API on Azure Functions) and a private Storage Account that keeps one score file per game. It costs cents a month and needs no servers.
+
+```
+npm run azure:preview    # what would be created — changes nothing
+npm run azure:deploy     # create / update everything
+npm run azure:export     # save all scores to this computer (JSON + CSV)
+npm run azure:remove     # delete everything (saves the scores first)
+```
+
+The full guide covers setup, security, everyday tasks, a **company hosting checklist** and troubleshooting: **[azure/README.md](azure/README.md)**.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -183,10 +196,15 @@ ecosystem-arcade/
 ├── home.html                Arcade home screen (loads inside index.html)
 ├── start-kiosk.bat          Windows launcher
 ├── start-kiosk.command      Mac launcher
-├── package.json             `npm start` runs the scores server, `npm test` runs the tests
-├── server/                  server.js (scores API + web server), scores-core.js (the score
-│                            rules: validation, limits, name filter), blocked-words.txt
-├── test/                    automated tests for the scores API and score rules
+├── package.json             `npm start` runs the scores server, `npm test` runs the tests,
+│                            `npm run azure:*` hosts it on Azure
+├── azure/                   Azure hosting: main.bicep, api/ (Azure Function), deploy/export/
+│                            remove scripts, security headers, README.md (setup guide)
+├── server/                  server.js (web server), scores-api.js (the API endpoints, shared
+│                            with Azure), scores-core.js (the score rules: validation,
+│                            limits, name filter), blocked-words.txt
+├── test/                    automated tests: API contract (local + Azure), score rules,
+│                            Azure score files
 ├── shared/                  config.js (scores server address), leaderboard.js,
 │                            passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/

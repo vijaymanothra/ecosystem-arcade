@@ -7,3 +7,6 @@ node_modules/
 **/.site/
 **/.build-packaged.yaml
 AWS-TEARDOWN.txt
+
+# score exports contain players' names (never commit)
+azure-scores-backup/

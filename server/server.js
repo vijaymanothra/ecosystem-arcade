@@ -1,7 +1,8 @@
 // ============================================================
 //  ECOSYSTEM ARCADE — scores API + web server for the games.
 //  One process, no dependencies: Node's built-in http and SQLite (Node 22.13 or newer).
-//  The same API also runs on AWS (see aws/); the score rules live in scores-core.js.
+//  The endpoints come from scores-api.js and the score rules from scores-core.js, both shared
+//  with the Azure version (azure/api), so every host answers alike.
 //
 //    npm start          → games at http://localhost:3000, API at http://localhost:3000/api
 //
@@ -29,6 +30,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const core = require('./scores-core');
+const { createApi } = require('./scores-api');
 
 let DatabaseSync;
 try {
@@ -46,7 +48,6 @@ const ALLOWED_ORIGINS = core.parseOrigins(process.env.ALLOWED_ORIGIN);
 const SERVE_STATIC = process.env.SERVE_STATIC !== '0';
 const TRUST_PROXY = process.env.TRUST_PROXY === '1';
 const nameFilter = core.loadNameFilter(__dirname);
-const rateLimited = core.createRateLimiter();
 
 // ---------------------------------------------------------------- database
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -70,72 +71,36 @@ const q = {
   topAll: db.prepare('SELECT * FROM scores WHERE game = ? ORDER BY score DESC, at LIMIT ?'),
   insert: db.prepare('INSERT OR IGNORE INTO scores (id, game, name, score, day, at, details) VALUES (?, ?, ?, ?, ?, ?, ?)'),
   clearGame: db.prepare('DELETE FROM scores WHERE game = ?'),
-  clearAll: db.prepare('DELETE FROM scores'),
+};
+const fromRow = (row) => ({ ...row, details: JSON.parse(row.details) });
+
+// SQLite as the store for the shared API (server/scores-api.js)
+const sqliteStore = {
+  async put(s) {
+    return Number(q.insert.run(s.id, s.game, s.name, s.score, s.day, s.at, JSON.stringify(s.details)).changes) > 0;
+  },
+  async top(game, day, limit) {
+    return (day ? q.topDay.all(game, day, limit) : q.topAll.all(game, limit)).map(fromRow);
+  },
+  async clear(game) {
+    return Number(q.clearGame.run(game).changes);
+  },
 };
 
-// Every kiosk asks for the same lists every few seconds; answer from memory until a score changes them.
-const listCache = new Map();
+const api = createApi({
+  store: sqliteStore,
+  adminToken: ADMIN_TOKEN,
+  allowedOrigins: ALLOWED_ORIGINS,
+  isBlocked: nameFilter.isBlocked,
+});
 
-function topScores(day, limit) {
-  const key = `${day}|${limit}`;
-  if (listCache.has(key)) return listCache.get(key);
-  const seen = new Set();
-  const out = [];
-  for (const game of Object.keys(core.GAMES)) {
-    for (const row of [...q.topDay.all(game, day, limit), ...q.topAll.all(game, limit)]) {
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      out.push(core.toPublic({ ...row, details: JSON.parse(row.details) }));
-    }
-  }
-  if (listCache.size > 50) listCache.clear();
-  listCache.set(key, out);
-  return out;
-}
-
-function saveScores(list) {
-  const now = Date.now();
-  const accepted = [];
-  const rejected = [];
-  db.exec('BEGIN');
-  try {
-    for (const e of list) {
-      const s = core.cleanScore(e, now, nameFilter.isBlocked);
-      if (s) {
-        q.insert.run(s.id, s.game, s.name, s.score, s.day, s.at, JSON.stringify(s.details));
-        accepted.push(s.id);
-      } else if (e && typeof e.id === 'string') {
-        rejected.push(e.id.slice(0, 40));
-      }
-    }
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
-  if (accepted.length) listCache.clear();
-  return { accepted, rejected };
-}
-
-// ---------------------------------------------------------------- http helpers
-const cors = (req) => core.corsHeaders(req.headers.origin, ALLOWED_ORIGINS);
-
-function sendJson(req, res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors(req) });
-  res.end(JSON.stringify(body));
-}
-
-const httpError = (status, message) => Object.assign(new Error(message), { status });
-
-function readJson(req) {
+// ---------------------------------------------------------------- API over HTTP
+function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
     req.on('data', (c) => { size += c.length; if (size <= core.MAX_BODY) chunks.push(c); });
-    req.on('end', () => {
-      if (size > core.MAX_BODY) return reject(httpError(413, 'request too large'));
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(httpError(400, 'invalid JSON')); }
-    });
+    req.on('end', () => resolve(size > core.MAX_BODY ? null : Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
@@ -145,43 +110,20 @@ function clientIp(req) {
   return req.socket.remoteAddress || '';
 }
 
-// ---------------------------------------------------------------- API
 async function handleApi(req, res, url) {
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, cors(req));
-    return res.end();
-  }
-  if (url.pathname === '/api/health' && req.method === 'GET') return sendJson(req, res, 200, { ok: true });
-  if (url.pathname !== '/api/scores') return sendJson(req, res, 404, { error: 'not found' });
-
-  if (req.method === 'GET') {
-    const day = core.parseDay(url.searchParams.get('day'));
-    const limit = core.parseLimit(url.searchParams.get('limit'));
-    return sendJson(req, res, 200, { now: Date.now(), scores: topScores(day, limit) });
-  }
-
-  if (req.method === 'POST') {
-    if (rateLimited(clientIp(req))) return sendJson(req, res, 429, { error: 'too many uploads, slow down' });
-    const body = await readJson(req);
-    const list = body && body.scores;
-    if (!Array.isArray(list) || list.length > core.MAX_PER_POST) {
-      return sendJson(req, res, 400, { error: `send { scores: [...] } with at most ${core.MAX_PER_POST} scores` });
-    }
-    return sendJson(req, res, 200, saveScores(list));
-  }
-
-  if (req.method === 'DELETE') {
-    if (!core.tokenMatches(req.headers.authorization, ADMIN_TOKEN)) {
-      return sendJson(req, res, ADMIN_TOKEN ? 401 : 403, { error: ADMIN_TOKEN ? 'wrong admin token' : 'set ADMIN_TOKEN to enable this' });
-    }
-    const game = url.searchParams.get('game');
-    if (game && !Object.hasOwn(core.GAMES, game)) return sendJson(req, res, 400, { error: 'unknown game' });
-    const result = game ? q.clearGame.run(game) : q.clearAll.run();
-    listCache.clear();
-    return sendJson(req, res, 200, { deleted: Number(result.changes) });
-  }
-
-  return sendJson(req, res, 405, { error: 'method not allowed' });
+  const body = req.method === 'POST' ? await readBody(req) : '';
+  const out = body === null
+    ? { status: 413, headers: { 'Content-Type': 'application/json; charset=utf-8', ...core.corsHeaders(req.headers.origin, ALLOWED_ORIGINS) }, body: JSON.stringify({ error: 'request too large' }) }
+    : await api({
+      method: req.method,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams),
+      headers: req.headers,
+      body,
+      ip: clientIp(req),
+    });
+  res.writeHead(out.status, out.headers);
+  res.end(out.body);
 }
 
 // ---------------------------------------------------------------- the games themselves
@@ -206,17 +148,21 @@ function serveStatic(req, res, pathname) {
 }
 
 // ---------------------------------------------------------------- server
+function sendJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
 const server = http.createServer(async (req, res) => {
   let url;
   try { url = new URL(req.url, 'http://localhost'); } catch { res.writeHead(400); return res.end(); }
   try {
     if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
     if (SERVE_STATIC && (req.method === 'GET' || req.method === 'HEAD')) return serveStatic(req, res, url.pathname);
-    sendJson(req, res, 404, { error: 'not found' });
+    sendJson(res, 404, { error: 'not found' });
   } catch (err) {
-    if (err.status) return sendJson(req, res, err.status, { error: err.message });
     console.error(err);
-    sendJson(req, res, 500, { error: 'server error' });
+    if (!res.headersSent) sendJson(res, 500, { error: 'server error' });
   }
 });
 
