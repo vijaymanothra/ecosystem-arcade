@@ -168,6 +168,8 @@
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? `🏆 Today's Top Travelers` : '🏆 Top Travelers';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No journeys finished yet — be the first legend!')); return; }
     lb.forEach((e, i) => {

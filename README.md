@@ -55,6 +55,22 @@ Passports reset each day. Two people with the same first name share a passport, 
 
 **Getting on the leaderboard is a separate step.** When a game ends with a score good enough for today's top 10, the player taps **Save** and confirms their name. Signing in on the home screen fills the name in, but the score is only recorded after that tap. Route Rush Duel scores are never saved.
 
+## For event staff: the admin page
+
+Open **`<arcade address>/admin/`** on any phone or laptop and enter the admin password. You don't need any Azure or server login. The page isn't linked from the games, and search engines are told not to list it.
+
+| Button | What it does | Undo |
+|---|---|---|
+| **Hide / Show** (one game, or all) | Pauses a leaderboard: players see *"🔒 Leaderboard paused by staff"*, and no names are sent to any screen. Scores are kept, and players can still play and save. | Press **Show** |
+| **Remove** (next to an entry) | Deletes that one score (e.g. a fake score or a rude name) | Within 30 days, from the score file's earlier versions (see [azure/README.md](azure/README.md)) |
+| **Wipe scores** (one game, or all) | Deletes that game's scores; you must type the game's name to confirm | Within 30 days, same as above |
+| **CSV** / **Download all (CSV)** | Downloads the scores as a spreadsheet | — |
+| **Lock** | Forgets the password on this device | — |
+
+**The admin page can only affect scores.** It can't change, delete or switch off the games or the website. Those can only change through a new deploy by whoever manages the hosting.
+
+**The password** is set by whoever deploys the arcade: `npm run azure:deploy -- --admin-password <password>`, at least 8 characters. Running that again with a new password changes it straight away. On the local server, set the `ADMIN_TOKEN` environment variable. The page never stores the password, and **5 wrong passwords lock that network address out of the admin page for 15 minutes**. Use something less guessable than a demo password for a real event, and share it only with staff.
+
 ## Staff controls
 
 Inside a game, the 🏠 button in the top-right corner must be **held** for about a second to return to the home screen. This prevents accidental exits. If a round is in progress, or a finished score hasn't been saved yet, the player is warned first that the score will be lost and can choose **Keep playing** or **Leave anyway**. Games also return home on their own after 3 idle minutes, without asking.
@@ -148,7 +164,7 @@ If the host only serves static files and can't run Node, host the games there an
 - **Blocked words** in `server/blocked-words.txt` (a starter list; add your own) are refused in names and in the rank/token text shown beside them.
 - **Volume limits:** at most 25 scores per upload, and each address can upload at most 300 times a minute. Offices often share one address, so this is sized for about 1,000 people on one network (`POSTS_PER_MINUTE`).
 - **Website restriction:** with `ALLOWED_ORIGIN` set, only those sites' pages can send scores; uploads must be JSON.
-- **Admin token:** wiping needs it (`X-Admin-Token` header), and 10 wrong tokens in a minute pause that address.
+- **Admin password:** every admin action (wipe, remove, hide) needs it, sent in the `X-Admin-Token` header. The [admin page](#for-event-staff-the-admin-page) does this for you. 5 wrong passwords pause that address for 15 minutes.
 
 Players can still fake a score up to a game's limit from the browser's developer tools, so check the top entries before handing out valuable prizes.
 
@@ -213,6 +229,7 @@ ecosystem-arcade/
 │                            limits, name filter), blocked-words.txt
 ├── test/                    automated tests: API contract (local + Azure), score rules,
 │                            Azure score files
+├── admin/                   staff page for leaderboard scores (/admin/, password-protected)
 ├── shared/                  config.js (scores server address), leaderboard.js,
 │                            passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/

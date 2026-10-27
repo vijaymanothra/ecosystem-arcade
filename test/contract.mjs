@@ -8,6 +8,7 @@ const { POSTS_PER_MINUTE } = createRequire(import.meta.url)('../server/scores-co
 
 export const ADMIN = 'test-admin-token-123456';
 export const today = new Date().toISOString().slice(0, 10);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function apiContract(name, start) {
   describe(name, () => {
@@ -72,6 +73,49 @@ export function apiContract(name, start) {
       assert.equal((await r.json()).deleted, 3);
       const j = await list();
       assert.deepEqual(j.scores.map((e) => e.game), ['case-files']);
+    });
+
+    // ---------------------------------------------------------------- admin (scores only)
+    const admin = (method, path, body) => fetch(`${base}/api${path}`, {
+      method, headers: { 'X-Admin-Token': ADMIN, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined,
+    });
+
+    test('admin: every admin action needs the password', async () => {
+      // no password at all (a wrong one is covered by the wipe test above and the lockout unit test)
+      for (const [m, p] of [['GET', '/admin/scores'], ['GET', '/admin/scores?game=case-files'], ['DELETE', '/admin/scores?game=case-files&id=a3'], ['GET', '/admin/settings'], ['PUT', '/admin/settings'], ['DELETE', '/scores']]) {
+        const r = await fetch(`${base}/api${p}`, { method: m, headers: { 'Content-Type': 'application/json' }, body: m === 'PUT' ? '{"hiddenGames":["case-files"]}' : undefined });
+        assert.equal(r.status, 401, `${m} ${p}`);
+      }
+    });
+
+    test('admin: list every score of a game, and remove just one entry', async () => {
+      await post([S('k1', { game: 'case-files', name: 'Keep', score: 300 }), S('k2', { game: 'case-files', name: 'Spam', score: 400 })]);
+      let j = await (await admin('GET', '/admin/scores?game=case-files')).json();
+      assert.deepEqual(j.scores.map((s) => s.name), ['Spam', 'Keep', 'Cy']);
+      j = await (await admin('GET', '/admin/scores')).json();
+      assert.equal(j.games['case-files'], 3);
+      const r = await admin('DELETE', '/admin/scores?game=case-files&id=k2');
+      assert.equal((await r.json()).deleted, 1);
+      assert.equal((await (await admin('DELETE', '/admin/scores?game=case-files&id=k2')).json()).deleted, 0, 'already gone');
+      j = await (await admin('GET', '/admin/scores?game=case-files')).json();
+      assert.deepEqual(j.scores.map((s) => s.name), ['Keep', 'Cy']);
+    });
+
+    test('admin: hiding a leaderboard keeps its scores but shows no names to players', async () => {
+      let r = await admin('PUT', '/admin/settings', { hiddenGames: ['case-files', 'not-a-game'] });
+      assert.deepEqual((await r.json()).hiddenGames, ['case-files']);
+      await sleep(3100); // lists are cached for 3 s
+      let j = await list();
+      assert.deepEqual(j.hidden, ['case-files']);
+      assert.ok(!j.scores.some((s) => s.game === 'case-files'), 'no names of a hidden game leave the API');
+      const saved = await (await post([S('h1', { game: 'case-files', name: 'Hidden', score: 10 })])).json();
+      assert.deepEqual(saved.accepted, ['h1'], 'players can still save while it is hidden');
+      assert.equal((await (await admin('GET', '/admin/scores?game=case-files')).json()).scores.length, 3, 'scores kept');
+      r = await admin('PUT', '/admin/settings', { hiddenGames: [] });
+      await sleep(3100);
+      j = await list();
+      assert.deepEqual(j.hidden, []);
+      assert.ok(j.scores.some((s) => s.game === 'case-files'), 'shown again');
     });
 
     test('CORS preflight works for kiosks opening local files', async () => {

@@ -6,7 +6,7 @@ const { liveHandler } = require('../handler');
 
 app.http('scores', {
   route: '{*path}',
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   authLevel: 'anonymous', // players don't sign in; the API itself validates, rate-limits and guards DELETE
   handler: async (request, context) => {
     try {

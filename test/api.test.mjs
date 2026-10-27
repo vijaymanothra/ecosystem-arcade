@@ -173,12 +173,12 @@ describe('score rules (scores-core.js)', () => {
     assert.equal(del.status, 403);
   });
 
-  test('wrong admin tokens: after 10 in a minute that address is paused; others are not', async () => {
+  test('wrong admin passwords: after 5 that address is paused (15 minutes); others are not', async () => {
     const { createApi } = require('../server/scores-api.js');
     const store = { put: async () => true, top: async () => [], clear: async () => 0 };
     const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
     const del = (token, ip) => api({ method: 'DELETE', path: '/api/scores', query: {}, ip, headers: { 'x-admin-token': token } });
-    for (let i = 0; i < 10; i++) assert.equal((await del('guess', '6.6.6.6')).status, 401);
+    for (let i = 0; i < 5; i++) assert.equal((await del('guess', '6.6.6.6')).status, 401);
     assert.equal((await del('guess', '6.6.6.6')).status, 429);
     assert.equal((await del('secret-token-1234567', '6.6.6.6')).status, 429, 'paused even with the right token');
     assert.equal((await del('secret-token-1234567', '7.7.7.7')).status, 200, 'other addresses unaffected');

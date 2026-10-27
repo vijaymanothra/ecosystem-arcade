@@ -17,6 +17,9 @@
 //    --allow-origin <url,url>      other sites allowed to send scores besides the arcade itself,
 //                                  e.g. a custom domain https://arcade.company.com
 //    --allow-local-kiosks          also accept scores from kiosks that open the games as local files
+//    --admin-password <password>   set or change the password for the admin page (/admin/);
+//                                  at least 8 characters. Without it, the first deploy generates one.
+//    --lock                        add a "do not delete" lock to the resource group (needs Owner)
 //
 //  Needs: Azure CLI (az login), Node.js 22.13+. The admin token for wiping scores is generated
 //  on the first deploy and kept in azure/.deploy.local.json (git-ignored).
@@ -24,7 +27,7 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join, relative } from 'node:path';
-import { AZURE_DIR, ROOT, readOptions, defaults, az, npm, npx, account, settingsFor, SETTINGS_PATH, step } from './azure-cli.mjs';
+import { AZURE_DIR, ROOT, readOptions, defaults, az, npm, npx, account, settingsFor, saveSettings, SETTINGS_PATH, step } from './azure-cli.mjs';
 import { stageSite, writeSiteConfig } from './site-files.mjs';
 
 const SWA_CLI = '@azure/static-web-apps-cli@2.1.0';
@@ -45,7 +48,13 @@ try {
   const acct = account(cfg.subscription);
   console.log(`Azure: ${acct.name} (${acct.id}) · signed in as ${acct.user && acct.user.name}`);
   console.log(`Resource group ${cfg.group} · region ${cfg.location} · app ${cfg.name} · plan ${sku}${preview ? ' · PREVIEW ONLY' : ''}`);
-  const settings = settingsFor(`${acct.id}/${cfg.group}/${cfg.name}`, () => ({ adminToken: randomBytes(24).toString('base64url') }));
+  const settingsKey = `${acct.id}/${cfg.group}/${cfg.name}`;
+  const settings = settingsFor(settingsKey, () => ({ adminToken: randomBytes(24).toString('base64url') }));
+  if (typeof opts['admin-password'] === 'string') {
+    const pw = opts['admin-password'];
+    if (pw.length < 8) throw new Error('--admin-password must be at least 8 characters.');
+    if (pw !== settings.adminToken && !preview) { settings.adminToken = pw; saveSettings(settingsKey, settings); console.log('Admin password: updated (saved in azure/.deploy.local.json)'); }
+  }
 
   // ---------------------------------------------------------------- services the subscription must have switched on
   const providers = ['Microsoft.Web', 'Microsoft.Storage'];
@@ -83,6 +92,7 @@ try {
       adminToken: { value: settings.adminToken },
       scoresAccessExpiry: { value: new Date(Date.now() + accessDays * 86400000).toISOString().replace(/\.\d+Z$/, 'Z') },
       extraAllowedOrigins: { value: extraOrigins },
+      lockAgainstDeletion: { value: Boolean(opts.lock) },
     },
   }, null, 2));
   const template = join(AZURE_DIR, 'main.bicep');
@@ -131,7 +141,7 @@ try {
 
    Resource group:   ${cfg.group}
    Score files:      storage account ${out.storageAccountName}, container "scores"
-   Admin token:      in ${relative(ROOT, SETTINGS_PATH)}  (for wiping scores: see azure/README.md)
+   Admin page:       ${out.siteUrl}/admin/   (password: in ${relative(ROOT, SETTINGS_PATH)}, "adminToken")
    Update later:     npm run azure:deploy
    Save the scores:  npm run azure:export
    Remove it all:    npm run azure:remove

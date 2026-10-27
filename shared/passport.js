@@ -96,10 +96,12 @@
   }
 
   // ---------------------------------------------------------------- champions (reads each game's leaderboard)
+  // a leaderboard staff have paused from the admin page shows no names
+  const paused = (gameId) => Boolean(window.Leaderboard && window.Leaderboard.isHidden && window.Leaderboard.isHidden(gameId));
   // Today's top `n` for one game, one place per player (their best score).
   function podium(gameId, n) {
     const g = GAME[gameId];
-    if (!g) return [];
+    if (!g || paused(gameId)) return [];
     const best = new Map();
     for (const e of read(g.lb, [])) {
       if (!e || e.day !== today()) continue;
@@ -365,7 +367,7 @@
     document.body.append(box);
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, setLeaveGuard, mount };
+  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

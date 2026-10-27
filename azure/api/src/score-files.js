@@ -71,9 +71,30 @@ function createScoreFiles(backend, {
       else { list = (await load(game)).list; cache.set(game, { at: Date.now(), list }); }
       return list.filter((e) => !day || e.day === day).sort(byRank).slice(0, limit);
     },
+    async list(game) {
+      return (await load(game)).list.sort(byRank);
+    },
+    async remove(game, id) {
+      const { written } = await update(game, (list) => (list.some((e) => e.id === id) ? list.filter((e) => e.id !== id) : null));
+      return written ? 1 : 0;
+    },
     async clear(game) {
       const { written, before } = await update(game, (list) => (list.length ? [] : null));
       return written ? before.length : 0;
+    },
+    // staff settings (which leaderboards are hidden) live next to the score files, in settings.json
+    async getSettings() {
+      const f = await backend.read('settings.json');
+      if (!f) return {};
+      try { return JSON.parse(f.text) || {}; } catch { return {}; }
+    },
+    async setSettings(settings) {
+      for (let attempt = 1; attempt <= maxTries; attempt++) {
+        const f = await backend.read('settings.json');
+        if (await backend.write('settings.json', JSON.stringify(settings), f ? f.etag : null)) return;
+        await wait(20 * attempt);
+      }
+      throw Object.assign(new Error("couldn't save settings.json"), { code: 'TOO_BUSY' });
     },
     async readAll(games) {           // for exports: every score, newest file contents
       const out = {};

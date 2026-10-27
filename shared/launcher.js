@@ -101,7 +101,7 @@
         el('div', 'tn', g.name),
         el('div', 'tt', t.tagline),
         chips,
-        el('div', 'best', top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
+        el('div', 'best', P.paused(g.id) ? '🔒 Leaderboard paused' : top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
         el('div', 'play', '▶ PLAY'),
       );
       tile.querySelector('.art').style.animationDelay = `${-i * 0.6}s`;
@@ -186,6 +186,13 @@
     head.replaceChildren(el('span', null, g.icon), el('span', null, g.name));
     const ol = $('#champs');
     ol.replaceChildren();
+    if (P.paused(g.id)) { // staff paused this leaderboard from the admin page
+      const li = el('li', 'p1');
+      li.append(el('span', 'medal', '🔒'), el('span', 'none', 'Leaderboard paused by staff'));
+      ol.append(li);
+      if (animate) for (const n of [head, ol, $('.champ-timer')]) { n.classList.remove('swap'); void n.offsetWidth; n.classList.add('swap'); }
+      return;
+    }
     const top = P.podium(g.id, 3);
     ['🥇', '🥈', '🥉'].forEach((medal, i) => {
       const e = top[i];

@@ -32,7 +32,7 @@ function createHandler(api) {
     const url = new URL(request.url);
     const headers = {};
     for (const [k, v] of request.headers) headers[k.toLowerCase()] = v;
-    const body = request.method === 'POST' ? await request.text() : '';
+    const body = request.method === 'POST' || request.method === 'PUT' ? await request.text() : '';
     const out = await api({
       method: request.method,
       path: url.pathname,

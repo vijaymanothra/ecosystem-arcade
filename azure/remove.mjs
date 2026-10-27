@@ -20,6 +20,14 @@ try {
     console.log(`Nothing to remove: resource group ${cfg.group} doesn't exist in ${acct.name}.`);
     process.exit(0);
   }
+  const locks = az(['lock', 'list', '--resource-group', cfg.group, '--query', '[].name'], { json: true }) || [];
+  if (locks.length) {
+    console.log(`\nResource group ${cfg.group} is locked against deletion (${locks.join(', ')}), so nothing was removed.`);
+    console.log('If you really mean to remove the arcade, an Owner first removes the lock:');
+    for (const l of locks) console.log(`  az lock delete --name ${l} --resource-group ${cfg.group}`);
+    console.log('then runs npm run azure:remove again.');
+    process.exit(1);
+  }
   const resources = az(['resource', 'list', '--resource-group', cfg.group, '--query', '[].{name:name, type:type}'], { json: true });
   console.log(`Subscription ${acct.name}\nResource group ${cfg.group} contains:`);
   for (const r of resources) console.log(`  • ${r.name}  (${r.type})`);

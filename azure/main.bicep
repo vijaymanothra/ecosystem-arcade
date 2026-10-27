@@ -27,10 +27,13 @@ param staticSiteSku string = 'Free'
 @description('Tags for every resource, e.g. owner, costCenter, event, deleteAfter.')
 param tags object = {}
 
-@description('Password for wiping scores (DELETE /api/scores). The deploy script generates it.')
+@description('Password for the admin page (/admin/): wipe, remove or hide scores. Set with --admin-password, or generated on the first deploy.')
 @secure()
-@minLength(16)
+@minLength(8)
 param adminToken string
+
+@description('Add a "do not delete" lock on the resource group, so nobody — even subscription owners — can delete the arcade or its scores until the lock is removed. Needs Owner (or User Access Administrator) to set.')
+param lockAgainstDeletion bool = false
 
 @description('When the API\'s pass to the score files expires, e.g. 2027-04-25T00:00:00Z. Every deploy issues a fresh one.')
 param scoresAccessExpiry string
@@ -132,6 +135,16 @@ resource siteSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
     ALLOWED_ORIGIN: empty(extraAllowedOrigins) ? 'https://${site.properties.defaultHostname}' : 'https://${site.properties.defaultHostname},${extraAllowedOrigins}'
   }
   dependsOn: [scoresContainer]
+}
+
+// ---------------------------------------------------------------- optional delete lock
+// Blocks deleting the resource group or anything in it (changes and score saves still work).
+resource deleteLock 'Microsoft.Authorization/locks@2020-05-01' = if (lockAgainstDeletion) {
+  name: 'arcade-do-not-delete'
+  properties: {
+    level: 'CanNotDelete'
+    notes: 'Ecosystem Arcade: remove this lock before deleting the arcade (npm run azure:remove explains how).'
+  }
 }
 
 output siteUrl string = 'https://${site.properties.defaultHostname}'

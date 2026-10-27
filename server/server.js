@@ -65,12 +65,20 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS scores_by_day ON scores (game, day, score DESC, at);
   CREATE INDEX IF NOT EXISTS scores_by_game ON scores (game, score DESC, at);
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 const q = {
   topDay: db.prepare('SELECT * FROM scores WHERE game = ? AND day = ? ORDER BY score DESC, at LIMIT ?'),
   topAll: db.prepare('SELECT * FROM scores WHERE game = ? ORDER BY score DESC, at LIMIT ?'),
+  listGame: db.prepare('SELECT * FROM scores WHERE game = ? ORDER BY score DESC, at'),
   insert: db.prepare('INSERT OR IGNORE INTO scores (id, game, name, score, day, at, details) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+  removeOne: db.prepare('DELETE FROM scores WHERE game = ? AND id = ?'),
   clearGame: db.prepare('DELETE FROM scores WHERE game = ?'),
+  getSetting: db.prepare('SELECT value FROM settings WHERE key = ?'),
+  setSetting: db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
 };
 const fromRow = (row) => ({ ...row, details: JSON.parse(row.details) });
 
@@ -82,8 +90,21 @@ const sqliteStore = {
   async top(game, day, limit) {
     return (day ? q.topDay.all(game, day, limit) : q.topAll.all(game, limit)).map(fromRow);
   },
+  async list(game) {
+    return q.listGame.all(game).map(fromRow);
+  },
+  async remove(game, id) {
+    return Number(q.removeOne.run(game, id).changes);
+  },
   async clear(game) {
     return Number(q.clearGame.run(game).changes);
+  },
+  async getSettings() {
+    const row = q.getSetting.get('admin');
+    return row ? JSON.parse(row.value) : {};
+  },
+  async setSettings(settings) {
+    q.setSetting.run('admin', JSON.stringify(settings));
   },
 };
 
@@ -111,7 +132,7 @@ function clientIp(req) {
 }
 
 async function handleApi(req, res, url) {
-  const body = req.method === 'POST' ? await readBody(req) : '';
+  const body = req.method === 'POST' || req.method === 'PUT' ? await readBody(req) : '';
   const out = body === null
     ? { status: 413, headers: { 'Content-Type': 'application/json; charset=utf-8', ...core.corsHeaders(req.headers.origin, ALLOWED_ORIGINS) }, body: JSON.stringify({ error: 'request too large' }) }
     : await api({

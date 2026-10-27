@@ -69,6 +69,11 @@ export function settingsFor(key, create) {
   if (!all[key] && create) { all[key] = create(); writeFileSync(SETTINGS_FILE, JSON.stringify(all, null, 2)); }
   return all[key];
 }
+export function saveSettings(key, value) {
+  const all = existsSync(SETTINGS_FILE) ? JSON.parse(readFileSync(SETTINGS_FILE, 'utf8')) : {};
+  all[key] = value;
+  writeFileSync(SETTINGS_FILE, JSON.stringify(all, null, 2));
+}
 export const SETTINGS_PATH = SETTINGS_FILE;
 
 export const step = (msg) => console.log(`\n▸ ${msg}`);

@@ -27,7 +27,10 @@ const NAME_MAX = 20;
 const DETAIL_TEXT_MAX = 20;     // per-game extras shown next to names (rank, token …)
 const MAX_BODY = 64 * 1024;     // bytes per request
 const MAX_PER_POST = 25;        // scores per upload (the games send at most 25 at a time)
-const ADMIN_FAILS_PER_MINUTE = 10; // wrong admin-token attempts per address before a pause
+// Wrong admin passwords: this many from one address pauses it for the rest of the window.
+// Strict, because event passwords tend to be short and easy to remember.
+const ADMIN_FAIL_LIMIT = 5;
+const ADMIN_FAIL_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LIMIT = 100;          // scores per game per list
 // Uploads per client address per minute. Offices usually share one public address, so this is
 // sized for ~1,000 people on one network finishing games within a few minutes, while still
@@ -125,23 +128,23 @@ function localToday() {
 const parseDay = (v) => (v && DAY_RE.test(v) ? v : localToday());
 const parseLimit = (v) => Math.min(MAX_LIMIT, Math.max(1, parseInt(v, 10) || 10));
 
-// Counts events per client address per minute; old entries are swept as it goes.
-// limited(key) counts one and says whether the address is over the limit;
+// Counts events per client address in a time window (default: a minute); old entries are swept as
+// it goes. limited(key) counts one and says whether the address is over the limit;
 // limited.over(key) only checks, without counting.
-function createRateLimiter(perMinute = POSTS_PER_MINUTE) {
+function createRateLimiter(perWindow = POSTS_PER_MINUTE, windowMs = 60000) {
   const seen = new Map();
   let swept = Date.now();
   const current = (key, t) => {
-    if (t - swept > 60000) {
-      for (const [k, u] of seen) if (t - u.start > 60000) seen.delete(k);
+    if (t - swept > windowMs) {
+      for (const [k, u] of seen) if (t - u.start > windowMs) seen.delete(k);
       swept = t;
     }
     let u = seen.get(key);
-    if (!u || t - u.start > 60000) { u = { start: t, count: 0 }; seen.set(key, u); }
+    if (!u || t - u.start > windowMs) { u = { start: t, count: 0 }; seen.set(key, u); }
     return u;
   };
-  const limited = (key) => ++current(key, Date.now()).count > perMinute;
-  limited.over = (key) => current(key, Date.now()).count >= perMinute;
+  const limited = (key) => ++current(key, Date.now()).count > perWindow;
+  limited.over = (key) => current(key, Date.now()).count >= perWindow;
   return limited;
 }
 
@@ -164,7 +167,7 @@ function corsHeaders(origin, allowedOrigins) {
   if (!allow) return {};
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -173,7 +176,7 @@ function corsHeaders(origin, allowedOrigins) {
 const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).filter(Boolean);
 
 module.exports = {
-  GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAILS_PER_MINUTE, CONTENT_TYPES,
+  GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
   loadNameFilter, cleanScore, toPublic, byRank, localToday, parseDay, parseLimit,
   createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

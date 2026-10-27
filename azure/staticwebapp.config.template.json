@@ -12,6 +12,7 @@
     "Cross-Origin-Opener-Policy": "same-origin"
   },
   "routes": [
-    { "route": "/staticwebapp.config.json", "statusCode": 404 }
+    { "route": "/staticwebapp.config.json", "statusCode": 404 },
+    { "route": "/admin/*", "headers": { "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store", "X-Frame-Options": "DENY" } }
   ]
 }

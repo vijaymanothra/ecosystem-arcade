@@ -53,10 +53,10 @@ Nothing else is created: no database, no virtual machines, no always-on servers.
   - **names** are letters (any language), spaces, hyphens and apostrophes only, up to 20 characters; no digits, emojis or symbols
   - a **blocked-words list** (`server/blocked-words.txt`), which also covers the rank and token text shown next to names
   - at most 25 scores per upload, and each score file holds at most 20,000 scores, so a spam flood can't keep growing it (wipe the spam to continue; the games keep unsaved scores and retry)
-  - 10 wrong admin tokens in a minute pause that address
+  - 5 wrong admin passwords pause that address for 15 minutes
   - at most 300 uploads a minute per address (`POSTS_PER_MINUTE` in `server/scores-core.js`). Offices usually share one public address, so this is sized for about 1,000 people on one network finishing within a few minutes.
-  - wiping scores needs the admin token
-- **Secrets stay out of git:** the admin token lives in `azure/.deploy.local.json` (git-ignored) and in the Static Web App's encrypted app settings.
+  - every admin action (wipe, remove one entry, hide or show a leaderboard) needs the admin password, and can only touch **scores**, never the games or the website
+- **Secrets stay out of git:** the admin password lives in `azure/.deploy.local.json` (git-ignored, value `adminToken`) and in the Static Web App's encrypted app settings (`ADMIN_TOKEN`).
 
 ## One-time setup
 
@@ -92,10 +92,12 @@ Common options (put them after `--`, e.g. `npm run azure:deploy -- --location we
 | `--sku Free\|Standard` | `Free` | |
 | `--tag key=value` | `app=ecosystem-arcade` | repeatable, e.g. owner, costCenter, event, deleteAfter |
 | `--access-days <n>` | `180` | lifetime of the API's pass to the score files |
+| `--admin-password <password>` | generated | password for the admin page; 8+ characters; run again to change it |
+| `--lock` | off | adds a *do not delete* lock to the resource group (needs Owner); see the checklist |
 | `--allow-origin <url,url>` | none | other sites allowed to send scores, e.g. a custom domain `https://arcade.company.com` |
 | `--allow-local-kiosks` | off | also accept scores from kiosks that open the games as local files (with `scoresApi` in `shared/config.js` pointing at this arcade) |
 
-At the end it prints the address, e.g. `https://<random-words>.azurestaticapps.net/`. The first run creates `azure/.deploy.local.json` with the **admin token**. Keep that file; it's git-ignored. **Run the deploy again at least every 180 days** (or whatever `--access-days` you set) to renew the API's pass to the score files.
+At the end it prints the address, e.g. `https://<random-words>.azurestaticapps.net/`. The first run creates `azure/.deploy.local.json` with the **admin password** (`adminToken`), unless you set one with `--admin-password`. Keep that file; it's git-ignored. **Run the deploy again at least every 180 days** (or whatever `--access-days` you set) to renew the API's pass to the score files.
 
 ## Check it works
 1. Open the address. The home screen loads.
@@ -110,8 +112,9 @@ At the end it prints the address, e.g. `https://<random-words>.azurestaticapps.n
 | **Save all scores to this computer** | `npm run azure:export` saves `azure-scores-backup/<date-time>/` with each game's JSON file and **`scores.csv`** (opens in Excel). This folder is git-ignored, because it contains names. |
 | Look at the score files | Azure portal → the storage account → **Storage browser → Blob containers → scores** → download a file |
 | **Undo a bad change** to a score file | Same place → the file → **Versions** → pick an earlier version → **Make current version** |
-| Wipe test scores (one game or all) | `curl -X DELETE "<address>/api/scores?game=route-rush" -H "X-Admin-Token: <adminToken>"`. Leave out `?game=` for all games. The `adminToken` is in `azure/.deploy.local.json`. Use the `X-Admin-Token` header: Static Web Apps doesn't pass `Authorization` headers to the API. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`. In PowerShell, use `curl.exe` instead of `curl`. |
-| Change the admin token | Delete its entry in `azure/.deploy.local.json`, then run `npm run azure:deploy` |
+| **Manage scores (staff)** | Open **`<address>/admin/`** and enter the admin password: hide or show leaderboards, remove one entry, wipe a game or all games, download CSVs. No Azure login needed. Details: [README, "For event staff"](../README.md#for-event-staff-the-admin-page). |
+| Wipe test scores from the command line | `curl -X DELETE "<address>/api/scores?game=route-rush" -H "X-Admin-Token: <adminToken>"`. Leave out `?game=` for all games. The `adminToken` is in `azure/.deploy.local.json`. Use the `X-Admin-Token` header: Static Web Apps doesn't pass `Authorization` headers to the API. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`. In PowerShell, use `curl.exe` instead of `curl`. |
+| Change the admin password | `npm run azure:deploy -- --admin-password <new password>` |
 | See API errors | Azure portal → the Static Web App → **APIs** / **Log stream**, or add Application Insights (see checklist) |
 
 ## Company hosting checklist
@@ -139,7 +142,8 @@ Hand this to IT and security before hosting in a company subscription.
 
 **Secrets and access**
 - [ ] Deploy through a **pipeline** (GitHub Actions or Azure DevOps) with a service principal or federated identity that has **Contributor on the resource group only**, rather than from a personal laptop.
-- [ ] The admin token is shared only with event staff, and changed after testing.
+- [ ] The admin password is strong (not a demo password), shared only with event staff through the password manager, and changed after testing.
+- [ ] Add the delete lock: `npm run azure:deploy -- --lock`. Nobody, not even subscription owners, can then delete the arcade or its scores by mistake; `npm run azure:remove` refuses until an Owner removes the lock.
 - [ ] If policy forbids SAS tokens: switch to Standard + a linked Azure Functions app with a **managed identity** and the *Storage Blob Data Contributor* role on the container, then disable shared-key access on the storage account. *(A further step, not automated here.)*
 
 **Running it**

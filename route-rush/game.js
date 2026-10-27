@@ -181,6 +181,8 @@
       ? `🏆 Today's Top ${CFG.leaderboardSize}` : `🏆 Top ${CFG.leaderboardSize}`;
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) {
       ol.append(el('li', 'empty', 'No dispatchers yet — set the first record!'));
