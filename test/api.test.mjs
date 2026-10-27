@@ -104,6 +104,17 @@ describe('score rules (scores-core.js)', () => {
     assert.match(core.parseDay('not a day'), /^\d{4}-\d{2}-\d{2}$/);
   });
 
+  test('admin token: X-Admin-Token or Authorization: Bearer, must match exactly', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
+    const del = (headers) => api({ method: 'DELETE', path: '/api/scores', query: {}, headers });
+    assert.equal((await del({ 'x-admin-token': 'secret-token-1234567' })).status, 200);
+    assert.equal((await del({ authorization: 'Bearer secret-token-1234567' })).status, 200);
+    assert.equal((await del({ 'x-admin-token': 'nope' })).status, 401);
+    assert.equal((await del({})).status, 401);
+  });
+
   test('admin token must match exactly', () => {
     assert.equal(core.tokenMatches('Bearer secret-token', 'secret-token'), true);
     assert.equal(core.tokenMatches('Bearer secret-tokeN', 'secret-token'), false);

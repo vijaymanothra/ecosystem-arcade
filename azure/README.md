@@ -104,7 +104,7 @@ At the end it prints the address, e.g. `https://<random-words>.azurestaticapps.n
 | **Save all scores to this computer** | `npm run azure:export` saves `azure-scores-backup/<date-time>/` with each game's JSON file and **`scores.csv`** (opens in Excel). This folder is git-ignored, because it contains names. |
 | Look at the score files | Azure portal → the storage account → **Storage browser → Blob containers → scores** → download a file |
 | **Undo a bad change** to a score file | Same place → the file → **Versions** → pick an earlier version → **Make current version** |
-| Wipe test scores (one game or all) | `curl -X DELETE "<address>/api/scores?game=route-rush" -H "Authorization: Bearer <adminToken>"`. Leave out `?game=` for all games. The `adminToken` is in `azure/.deploy.local.json`. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`. |
+| Wipe test scores (one game or all) | `curl -X DELETE "<address>/api/scores?game=route-rush" -H "X-Admin-Token: <adminToken>"`. Leave out `?game=` for all games. The `adminToken` is in `azure/.deploy.local.json`. Use the `X-Admin-Token` header: Static Web Apps doesn't pass `Authorization` headers to the API. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`. In PowerShell, use `curl.exe` instead of `curl`. |
 | Change the admin token | Delete its entry in `azure/.deploy.local.json`, then run `npm run azure:deploy` |
 | See API errors | Azure portal → the Static Web App → **APIs** / **Log stream**, or add Application Insights (see checklist) |
 
@@ -162,6 +162,6 @@ It lists what's in the resource group, asks you to type the group's name to conf
 ## How it works
 - **`main.bicep`:** every Azure resource (Azure's equivalent of a CloudFormation template), including the storage pass and the app settings.
 - **`api/`:** the Azure Function. `src/functions/scores.js` sends every `/api/*` request to the **shared API** (`server/scores-api.js` + `server/scores-core.js`, copied in at deploy), so Azure and the local server answer identically. `src/score-files.js` keeps one JSON file per game, with version-checked writes and retries.
-- **`staticwebapp.config.json`:** the security headers. The deploy fills in the inline-script fingerprints.
+- **`staticwebapp.config.template.json`:** the security headers. The deploy fills in the inline-script fingerprints and publishes the result as the site's `staticwebapp.config.json`.
 - **`deploy.mjs`, `export.mjs`, `remove.mjs`:** plain Node scripts that drive the Azure CLI. `site-files.mjs` picks the files to publish.
 - **Tests:** `npm test` runs the API contract against the Azure handler and stress-tests the score files (saves at the same moment, retries, duplicates, unreadable files), all with an in-memory stand-in for Blob Storage.

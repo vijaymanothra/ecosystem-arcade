@@ -17,7 +17,8 @@
 //           the top `limit` per game for that day, plus the top `limit` per game of all time
 //    POST   /api/scores  { scores: [{ id, game, name, score, day, at, ...details }] }
 //           → { accepted: [ids], rejected: [ids] }   (sending the same id twice stores it once)
-//    DELETE /api/scores?game=<id>   with header  Authorization: Bearer <admin token>
+//    DELETE /api/scores?game=<id>   with header  X-Admin-Token: <admin token>
+//           (or Authorization: Bearer <admin token>, except on Azure, which keeps that header)
 //           → { deleted }   clears one game's scores, or every game's without ?game
 // ============================================================
 'use strict';
@@ -102,7 +103,9 @@ function createApi({
       }
 
       if (req.method === 'DELETE') {
-        if (!core.tokenMatches(headers.authorization, adminToken)) {
+        // X-Admin-Token works everywhere; Azure Static Web Apps keeps the Authorization header for itself
+        const given = headers['x-admin-token'] ? `Bearer ${headers['x-admin-token']}` : headers.authorization;
+        if (!core.tokenMatches(given, adminToken)) {
           return json(adminToken ? 401 : 403, { error: adminToken ? 'wrong admin token' : 'set ADMIN_TOKEN to enable this' });
         }
         const game = query.game;

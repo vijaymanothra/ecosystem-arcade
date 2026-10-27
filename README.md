@@ -147,7 +147,7 @@ If the host only serves static files and can't run Node, host the games there an
 **Clearing scores:** `Ctrl+Shift+X` twice in a game only clears that kiosk's view of the board. To wipe the shared board, start the server with an `ADMIN_TOKEN` and run:
 
 ```
-curl -X DELETE "https://your-server/api/scores?game=route-rush" -H "Authorization: Bearer YOUR_TOKEN"
+curl -X DELETE "https://your-server/api/scores?game=route-rush" -H "X-Admin-Token: YOUR_TOKEN"
 ```
 
 Leave out `?game=…` to wipe every game. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`.

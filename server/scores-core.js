@@ -126,7 +126,7 @@ function corsHeaders(origin, allowedOrigins) {
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

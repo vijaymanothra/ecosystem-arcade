@@ -40,9 +40,11 @@ export function inlineScriptHashes(siteDir, files) {
   return [...hashes];
 }
 
-// Writes staticwebapp.config.json into the staged site, filling in the inline-script hashes.
+// Writes staticwebapp.config.json into the staged site from staticwebapp.config.template.json,
+// filling in the inline-script hashes. (The template has a different name so the upload tool
+// can never mistake it for the real file.)
 export function writeSiteConfig(siteDir, files) {
-  const template = readFileSync(join(AZURE_DIR, 'staticwebapp.config.json'), 'utf8');
+  const template = readFileSync(join(AZURE_DIR, 'staticwebapp.config.template.json'), 'utf8');
   const config = template.replace('{{INLINE_SCRIPT_HASHES}}', inlineScriptHashes(siteDir, files).join(' '));
   writeFileSync(join(siteDir, 'staticwebapp.config.json'), config);
   return JSON.parse(config);

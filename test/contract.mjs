@@ -62,8 +62,9 @@ export function apiContract(name, start) {
 
     test('wiping needs the admin token and only touches the chosen game', async () => {
       assert.equal((await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE' })).status, 401);
+      assert.equal((await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { 'X-Admin-Token': 'wrong' } })).status, 401);
       assert.equal((await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { Authorization: 'Bearer wrong' } })).status, 401);
-      const r = await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { Authorization: `Bearer ${ADMIN}` } });
+      const r = await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { 'X-Admin-Token': ADMIN } });
       assert.equal(r.status, 200);
       assert.equal((await r.json()).deleted, 3);
       const j = await list();
