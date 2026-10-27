@@ -50,7 +50,7 @@ Nothing else is created: no database, no virtual machines, no always-on servers.
 - **API rules** (shared with the local server, in `server/scores-core.js`):
   - validated scores: a known game, a name of up to 20 characters, a score within the game's maximum
   - a name filter
-  - at most 60 uploads a minute per address
+  - at most 300 uploads a minute per address (`POSTS_PER_MINUTE` in `server/scores-core.js`). Offices usually share one public address, so this is sized for about 1,000 people on one network finishing within a few minutes.
   - wiping scores needs the admin token
 - **Secrets stay out of git:** the admin token lives in `azure/.deploy.local.json` (git-ignored) and in the Static Web App's encrypted app settings.
 

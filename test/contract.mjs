@@ -2,6 +2,9 @@
 // start() returns { base, stop } for a running API that uses ADMIN as its admin token.
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const { POSTS_PER_MINUTE } = createRequire(import.meta.url)('../server/scores-core.js');
 
 export const ADMIN = 'test-admin-token-123456';
 export const today = new Date().toISOString().slice(0, 10);
@@ -77,10 +80,14 @@ export function apiContract(name, start) {
       assert.equal(r.headers.get('access-control-allow-origin'), '*');
     });
 
-    test('uploads are rate limited (60 a minute per address)', async () => {
+    test(`uploads are rate limited (${POSTS_PER_MINUTE} a minute per address)`, async () => {
+      let allowed = 0;
       let limited = false;
-      for (let i = 0; i < 70 && !limited; i++) if ((await post([])).status === 429) limited = true;
+      for (let i = 0; i < POSTS_PER_MINUTE + 20 && !limited; i++) {
+        if ((await post([])).status === 429) limited = true; else allowed++;
+      }
       assert.ok(limited);
+      assert.ok(allowed >= POSTS_PER_MINUTE - 10, `only ${allowed} allowed before limiting`); // earlier tests in this suite also posted
     });
   });
 }

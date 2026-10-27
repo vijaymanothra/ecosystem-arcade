@@ -142,7 +142,7 @@ If the host only serves static files and can't run Node, host the games there an
 | `SERVE_STATIC` | `1` | `0` = API only, when the games are hosted somewhere else |
 | `TRUST_PROXY` | `0` | `1` when the server sits behind a proxy or load balancer, so rate limits see each real client |
 
-**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/scores-core.js`) are refused, each address can upload at most 60 times a minute, and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
+**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/scores-core.js`) are refused, each address can upload at most 300 times a minute (offices often share one address, so this is sized for about 1,000 people on one network; change `POSTS_PER_MINUTE` in `server/scores-core.js`), and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
 
 **Clearing scores:** `Ctrl+Shift+X` twice in a game only clears that kiosk's view of the board. To wipe the shared board, start the server with an `ADMIN_TOKEN` and run:
 

@@ -21,7 +21,10 @@ const NAME_MAX = 20;
 const MAX_BODY = 64 * 1024;     // bytes per request
 const MAX_PER_POST = 50;        // scores per upload
 const MAX_LIMIT = 100;          // scores per game per list
-const POSTS_PER_MINUTE = 60;    // uploads per client address
+// Uploads per client address per minute. Offices usually share one public address, so this is
+// sized for ~1,000 people on one network finishing games within a few minutes, while still
+// stopping floods (each upload is also capped at MAX_PER_POST scores, all validated).
+const POSTS_PER_MINUTE = 300;
 const DETAILS_MAX = 8;          // extra per-game fields kept with a score (accuracy, rank, …)
 const DAY_MS = 24 * 60 * 60 * 1000;
 const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at']);
