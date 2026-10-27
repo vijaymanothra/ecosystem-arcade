@@ -154,6 +154,13 @@
       .eap-leave .go{border:2px solid rgba(255,255,255,.35);background:transparent;color:#fff}
       @keyframes eapFade{from{opacity:0}}
       @keyframes eapPop{from{transform:scale(.85);opacity:0}}
+      /* phones: just a small round 🏠 in the corner, so it doesn't cover the game */
+      @media (max-width:640px),(max-height:500px){
+        .eap-bar{top:4px;right:4px;padding:0;gap:0;background:none;box-shadow:none;backdrop-filter:none;opacity:.85}
+        .eap-chip{display:none}
+        .eap-home{width:32px;height:32px;font-size:16px;background:rgba(10,10,30,.62);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+        .eap-stamp{border-width:5px;padding:12px 18px;max-width:92vw}
+      }
       @keyframes eapSlam{0%{transform:translateX(-50%) rotate(-8deg) scale(2.6);opacity:0}60%{transform:translateX(-50%) rotate(-3deg) scale(.95);opacity:1}100%{transform:translateX(-50%) rotate(-3deg) scale(1);opacity:1}}
       @keyframes eapOut{to{transform:translateX(-50%) translateY(-30vh) rotate(-3deg);opacity:0}}
     `;
@@ -319,12 +326,51 @@
     void gameId;
   }
 
+  // ---------------------------------------------------------------- "turn your phone sideways"
+  // Games whose board needs a wide screen (data-landscape on their passport.js tag) cover the
+  // screen with this note on a phone held upright; it disappears as soon as the phone is turned.
+  function landscapePrompt(gameName) {
+    const s = document.createElement('style');
+    s.textContent = `
+      .eap-rotate{display:none}
+      @media (orientation:portrait) and (max-width:640px){
+        .eap-rotate{display:flex;position:fixed;inset:0;z-index:9998;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+          padding:24px;text-align:center;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;
+          background:radial-gradient(ellipse at 50% 0%,#3a1c8a 0%,transparent 60%),#0b0820}
+      }
+      .eap-rotate .ph{font-size:72px;line-height:1;animation:eapTurn 2.4s ease-in-out infinite}
+      .eap-rotate h2{font-size:24px;font-weight:900;color:#ffd23f}
+      .eap-rotate p{font-size:16px;line-height:1.4;color:#d9d4ff;max-width:300px}
+      .eap-rotate button{margin-top:10px;min-height:46px;padding:10px 22px;border-radius:999px;border:2px solid rgba(255,255,255,.35);
+        background:transparent;color:#fff;font:700 15px "Segoe UI",system-ui,sans-serif;cursor:pointer}
+      @keyframes eapTurn{0%,30%{transform:rotate(0)}55%,85%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+      @media (prefers-reduced-motion:reduce){.eap-rotate .ph{animation:none}}
+    `;
+    document.head.append(s);
+    const box = document.createElement('div');
+    box.className = 'eap-rotate';
+    box.setAttribute('role', 'alert');
+    const ph = document.createElement('div');
+    ph.className = 'ph';
+    ph.textContent = '📱';
+    const h = document.createElement('h2');
+    h.textContent = 'Turn your phone sideways';
+    const p = document.createElement('p');
+    p.textContent = `${gameName} needs a wide screen. Rotate your phone to play.`;
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '🏠 Back to the Arcade';
+    back.addEventListener('click', goHome);
+    box.append(ph, h, p, back);
+    document.body.append(box);
+  }
+
   window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, setLeaveGuard, mount };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;
-  if (gameId) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => mount(gameId));
-    else mount(gameId);
-  }
+  const landscapeOnly = script && script.dataset.landscape !== undefined;
+  const onReady = (fn) => { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); };
+  if (gameId) onReady(() => mount(gameId));
+  if (gameId && landscapeOnly) onReady(() => landscapePrompt(GAME[gameId] ? GAME[gameId].name : 'This game'));
 })();

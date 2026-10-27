@@ -310,6 +310,24 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   #stage.finale #city { right: 0; width: 100%; height: 45%; }
 }
 
+/* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
+@media (max-width: 640px), (max-height: 500px) {
+  .hud { padding-right: 44px; } /* room for the small 🏠 in the corner */
+}
+@media (max-width: 640px) {
+  /* blueprints as compact full-width cards under the city, so they don't cover it */
+  .hand { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+  .bp { width: 100%; padding: 10px 12px; gap: 3px; border-radius: 14px; }
+  .bp:hover { transform: none; }
+  .bp .bp-kind, .bp .bp-stars { display: none; }
+  .bp .bp-top { gap: 10px; }
+  .bp .bp-icon { font-size: 26px; }
+  .bp .bp-name { font-size: 16px; }
+  .bp .bp-role { font-size: 12.5px; }
+  .bp .bp-gain { font-size: 15px; }
+  #stage.playing #city { top: 170px; height: calc(100% - 170px - 330px); }
+}
+
 /* ================================================================ KEYFRAMES */
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2vmin); } }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }

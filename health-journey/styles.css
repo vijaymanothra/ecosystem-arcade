@@ -362,6 +362,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .key.ok:disabled { opacity: .35; }
 
 /* ================================================================ PORTRAIT */
+/* phones: the small 🏠 sits in that corner (kiosk, laptop and desktop screens never match) */
+@media (max-width: 640px), (max-height: 500px) {
+  .mini-title { visibility: hidden; }
+}
+
 @media (orientation: portrait) {
   #play { flex-direction: column; }
   .board-area .board { width: 100%; }
