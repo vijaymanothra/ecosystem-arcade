@@ -33,6 +33,17 @@ The launchers open the games as local files, so each kiosk keeps its own scores.
 
 The home screen (`home.html`, opened through `index.html`) shows all five games, today's champions and the Ecosystem Experts wall. **Today's Champions** shows one game's top 3 at a time and moves to the next game every 6 seconds. Tap a game icon in that panel to jump to it. Each player appears once per game, with their best score of the day.
 
+## Playing on phones
+
+The arcade is built for a landscape kiosk, but it also works on phones, for example when it's hosted online. Phone-only adjustments apply below 640px wide, or under 500px tall in landscape. Kiosk, laptop and desktop screens never match, so they look exactly the same as before.
+
+- **Home screen:** a normal scrolling page with each game as a full-width row (picture, description, time, today's champion and ▶ PLAY).
+- **The 🏠 button** in games shrinks to a small icon in the corner, so it doesn't cover scores or timers.
+- **The Health Journey and Case Files** need a wide screen. On a phone held upright, they show *"Turn your phone sideways"* until it's rotated.
+- **Master the Map, Route Rush and Evernorth City** play in either orientation.
+
+To preview on a laptop: open the arcade in Chrome or Edge, press `F12`, then `Ctrl+Shift+M`, pick a phone, and reload.
+
 ## Evernorth Passport
 
 1. A player taps a game on the home screen and types their first name, or chooses **Play as guest**.
@@ -86,7 +97,7 @@ If you change a question or a business color, update every copy of `questions.js
 
 ## Shared leaderboards
 
-`server/server.js` is a small web server that hosts the games **and** keeps every score (name, score, game, date) in a SQLite database, so all players see the same boards. It needs [Node.js](https://nodejs.org) 22.13 or newer and nothing else: no `npm install`.
+`server/server.js` is a small web server that hosts the games **and** keeps every score (name, score, game, date) in a SQLite database, so all players see the same boards. It needs [Node.js](https://nodejs.org) 22.13 or newer and nothing else: no `npm install`. The score rules (validation, limits, name filter) live in `server/scores-core.js`, so any future hosting setup can reuse them. `npm test` checks the scores API and those rules.
 
 **Try it on your computer:**
 
@@ -131,7 +142,7 @@ If the host only serves static files and can't run Node, host the games there an
 | `SERVE_STATIC` | `1` | `0` = API only, when the games are hosted somewhere else |
 | `TRUST_PROXY` | `0` | `1` when the server sits behind a proxy or load balancer, so rate limits see each real client |
 
-**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/server.js`) are refused, each address can upload at most 60 times a minute, and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
+**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/scores-core.js`) are refused, each address can upload at most 60 times a minute, and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
 
 **Clearing scores:** `Ctrl+Shift+X` twice in a game only clears that kiosk's view of the board. To wipe the shared board, start the server with an `ADMIN_TOKEN` and run:
 
@@ -172,8 +183,10 @@ ecosystem-arcade/
 ├── home.html                Arcade home screen (loads inside index.html)
 ├── start-kiosk.bat          Windows launcher
 ├── start-kiosk.command      Mac launcher
-├── package.json             `npm start` runs the scores server
-├── server/                  server.js (scores API + web server), blocked-words.txt
+├── package.json             `npm start` runs the scores server, `npm test` runs the tests
+├── server/                  server.js (scores API + web server), scores-core.js (the score
+│                            rules: validation, limits, name filter), blocked-words.txt
+├── test/                    automated tests for the scores API and score rules
 ├── shared/                  config.js (scores server address), leaderboard.js,
 │                            passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/
@@ -197,7 +210,7 @@ If you use shared leaderboards:
 
 - [ ] Confirm the host keeps files across restarts (see the hosting table above).
 - [ ] Set an `ADMIN_TOKEN` so you can wipe test scores, and keep it private.
-- [ ] Lower each game's `maxScore` in `server/server.js` to just above a real top score.
+- [ ] Lower each game's `maxScore` in `server/scores-core.js` to just above a real top score.
 - [ ] Add words to `server/blocked-words.txt`.
 - [ ] Point every kiosk at the server, save a test score on one and check it appears on another.
 - [ ] Set up backups of the database.

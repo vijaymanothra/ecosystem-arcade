@@ -4,7 +4,8 @@
   "private": true,
   "description": "Five touchscreen games with shared leaderboards",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=22.13"

@@ -1,2 +1,9 @@
 server/data/
 node_modules/
+
+# local deploy secrets and build output from hosting scripts (never commit)
+**/.deploy.local.json
+**/.build/
+**/.site/
+**/.build-packaged.yaml
+AWS-TEARDOWN.txt
