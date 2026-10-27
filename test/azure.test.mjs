@@ -111,6 +111,24 @@ describe('Azure score files (one JSON file per game)', () => {
     assert.equal(reads, 1);
   });
 
+  test('a full score file stops taking scores (flood protection) without losing what it has', async () => {
+    const backend = memoryBackend();
+    const store = createScoreFiles(backend, { ...fast, maxScoresPerFile: 3 });
+    for (const id of ['f1', 'f2', 'f3']) await store.put(S(id));
+    await assert.rejects(store.put(S('f4')), { code: 'SCORES_FULL' });
+    assert.equal(JSON.parse(backend.files.get('route-rush.json').text).length, 3);
+    assert.equal(await store.put(S('f1')), false, 'a retry of a saved score is still recognised');
+  });
+
+  test('the API answers "full, try later" (503) so the games keep the scores and retry', async () => {
+    const store = createScoreFiles(memoryBackend(), { ...fast, maxScoresPerFile: 1 });
+    const api = createApi({ store, adminToken: ADMIN, log: { error() {} } });
+    const r = await api({ method: 'POST', path: '/api/scores', query: {}, headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scores: [S('g1', { details: undefined }), S('g2', { details: undefined })] }), ip: '1.1.1.1' });
+    assert.equal(r.status, 503);
+    assert.deepEqual(JSON.parse(r.body).accepted, ['g1']);
+  });
+
   test('export reads every game', async () => {
     const store = createScoreFiles(memoryBackend(), fast);
     await store.put(S('r1'));
@@ -159,7 +177,7 @@ describe('Azure handler: busy moments', () => {
     try {
       const posts = Array.from({ length: 20 }, (_, i) => fetch(`${base}/api/scores`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scores: [{ id: `busy${i}`, game: 'master-the-map', name: `P${i}`, score: 100 + i, day: today }] }),
+        body: JSON.stringify({ scores: [{ id: `busy${i}`, game: 'master-the-map', name: `Player ${String.fromCharCode(65 + i)}`, score: 100 + i, day: today }] }),
       }));
       const replies = await Promise.all(posts.map(async (p) => (await p).json()));
       assert.ok(replies.every((r) => r.accepted && r.accepted.length === 1));

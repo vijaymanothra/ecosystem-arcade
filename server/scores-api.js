@@ -35,6 +35,7 @@ function createApi({
   log = console,
 }) {
   const rateLimited = core.createRateLimiter();
+  const adminFailures = core.createRateLimiter(core.ADMIN_FAILS_PER_MINUTE);
   const listCache = new Map();
 
   async function topScores(day, limit) {
@@ -77,8 +78,15 @@ function createApi({
         return json(200, { now: Date.now(), scores }, listCacheControl);
       }
 
+      if (req.method === 'POST' || req.method === 'DELETE') {
+        // pages on other websites may not send scores or wipe them
+        if (!core.originAllowed(headers.origin, allowedOrigins)) return json(403, { error: 'this site may not send scores' });
+      }
+
       if (req.method === 'POST') {
         if (rateLimited(req.ip || '')) return json(429, { error: 'too many uploads, slow down' });
+        // JSON only: plain form posts from other pages (which skip the browser's cross-site check) are refused
+        if (!/^application\/json\b/i.test(headers['content-type'] || '')) return json(415, { error: 'send JSON (Content-Type: application/json)' });
         const raw = req.body || '';
         if (Buffer.byteLength(raw) > core.MAX_BODY) return json(413, { error: 'request too large' });
         let body;
@@ -97,15 +105,25 @@ function createApi({
           else if (e && typeof e.id === 'string') rejected.push(e.id.slice(0, 40));
         }
         // one at a time: stores that rewrite a file per save shouldn't race themselves
-        for (const s of valid) { await store.put(s); accepted.push(s.id); }
+        try {
+          for (const s of valid) { await store.put(s); accepted.push(s.id); }
+        } catch (err) {
+          if (err.code !== 'SCORES_FULL') throw err;
+          log.error(err);   // a flood filled a score file: keep what was saved, the rest retry later
+          if (accepted.length) listCache.clear();
+          return json(503, { error: 'the leaderboard is full right now, try again later', accepted, rejected });
+        }
         if (accepted.length) listCache.clear();
         return json(200, { accepted, rejected });
       }
 
       if (req.method === 'DELETE') {
+        // too many wrong tokens from this address: pause it (guessing a 32-character token is hopeless anyway)
+        if (adminFailures.over(req.ip || '')) return json(429, { error: 'too many wrong admin tokens, wait a minute' });
         // X-Admin-Token works everywhere; Azure Static Web Apps keeps the Authorization header for itself
         const given = headers['x-admin-token'] ? `Bearer ${headers['x-admin-token']}` : headers.authorization;
         if (!core.tokenMatches(given, adminToken)) {
+          adminFailures(req.ip || '');
           return json(adminToken ? 401 : 403, { error: adminToken ? 'wrong admin token' : 'set ADMIN_TOKEN to enable this' });
         }
         const game = query.game;

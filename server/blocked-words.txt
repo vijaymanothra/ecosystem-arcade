@@ -1,4 +1,80 @@
-# Names containing any word below are refused by the scores server.
-# One word per line, any case. Spaces and punctuation in names are ignored when matching,
-# so "b a d" matches "bad". Lines starting with # are comments.
-# Restart the server after editing.
+# Names (and per-game extras such as rank) containing a word below are refused.
+#
+# How matching works:
+#  - Words of 5+ letters are caught anywhere in a name, even split up or mixed in
+#    ("b.i.t.c.h", "xbitchx").
+#  - Shorter words only match a whole word of the name, so real names that merely
+#    contain them are fine (e.g. "Kshitij", "Cassandra", "Analia").
+#  - Case doesn't matter. Lines starting with # are notes.
+#
+# This is a starter list. Add words your event needs (one per line), and avoid words
+# that are also real first names. Redeploy (or restart the local server) after editing.
+
+# --- English profanity
+fuck
+fucker
+fucking
+motherfucker
+shit
+bullshit
+bitch
+bastard
+asshole
+ass
+arse
+cunt
+twat
+wanker
+prick
+cock
+pussy
+slut
+whore
+tits
+boobs
+dildo
+penis
+vagina
+porn
+pornstar
+sex
+sexy
+rape
+rapist
+cum
+anal
+
+# --- slurs and hate
+nigger
+nigga
+faggot
+fag
+retard
+spastic
+chink
+paki
+kike
+spic
+gook
+coon
+dyke
+tranny
+nazi
+hitler
+kkk
+
+# --- Hindi / Hinglish
+chutiya
+chutia
+madarchod
+maderchod
+bhenchod
+behenchod
+benchod
+gandu
+bhosdi
+bhosdike
+lauda
+lund
+harami
+haramzada

@@ -35,8 +35,8 @@ param adminToken string
 @description('When the API\'s pass to the score files expires, e.g. 2027-04-25T00:00:00Z. Every deploy issues a fresh one.')
 param scoresAccessExpiry string
 
-@description('Sites allowed to call the API from a browser, comma separated. * lets kiosks that open local files send scores.')
-param allowedOrigin string = '*'
+@description('Besides the arcade\'s own address, other sites allowed to send scores from a browser, comma separated: e.g. a custom domain "https://arcade.company.com", or "null" for kiosks that open the games as local files. Empty = only the arcade itself.')
+param extraAllowedOrigins string = ''
 
 // globally unique, 3-24 lowercase letters and digits
 var storageAccountName = take('st${replace(toLower(appName), '-', '')}${uniqueString(resourceGroup().id)}', 24)
@@ -128,7 +128,8 @@ resource siteSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
   properties: {
     SCORES_CONTAINER_URL: '${storage.properties.primaryEndpoints.blob}scores?${scoresAccess}'
     ADMIN_TOKEN: adminToken
-    ALLOWED_ORIGIN: allowedOrigin
+    // pages on other websites can't send scores (see server/scores-core.js originAllowed)
+    ALLOWED_ORIGIN: empty(extraAllowedOrigins) ? 'https://${site.properties.defaultHostname}' : 'https://${site.properties.defaultHostname},${extraAllowedOrigins}'
   }
   dependsOn: [scoresContainer]
 }

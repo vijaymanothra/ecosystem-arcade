@@ -47,9 +47,13 @@ Nothing else is created: no database, no virtual machines, no always-on servers.
   - a Content Security Policy that allows only the site's own files, plus the one inline script, by its fingerprint
   - no framing by other sites, HSTS, `nosniff`, and a strict referrer policy
 - **Only game files are published,** never `server/`, `azure/`, `test/`, scripts, docs or hidden files.
+- **Only the arcade's own pages can send scores.** Pages on other websites are refused, so a stranger's site can't make its visitors post scores. Uploads must be JSON. Add a custom domain with `--allow-origin`, or kiosks that open local files with `--allow-local-kiosks`.
 - **API rules** (shared with the local server, in `server/scores-core.js`):
-  - validated scores: a known game, a name of up to 20 characters, a score within the game's maximum
-  - a name filter
+  - **impossible scores are refused:** each game's limit is set just above the highest score it can actually produce, and `npm test` recomputes that from the game settings
+  - **names** are letters (any language), spaces, hyphens and apostrophes only, up to 20 characters; no digits, emojis or symbols
+  - a **blocked-words list** (`server/blocked-words.txt`), which also covers the rank and token text shown next to names
+  - at most 25 scores per upload, and each score file holds at most 20,000 scores, so a spam flood can't keep growing it (wipe the spam to continue; the games keep unsaved scores and retry)
+  - 10 wrong admin tokens in a minute pause that address
   - at most 300 uploads a minute per address (`POSTS_PER_MINUTE` in `server/scores-core.js`). Offices usually share one public address, so this is sized for about 1,000 people on one network finishing within a few minutes.
   - wiping scores needs the admin token
 - **Secrets stay out of git:** the admin token lives in `azure/.deploy.local.json` (git-ignored) and in the Static Web App's encrypted app settings.
@@ -88,6 +92,8 @@ Common options (put them after `--`, e.g. `npm run azure:deploy -- --location we
 | `--sku Free\|Standard` | `Free` | |
 | `--tag key=value` | `app=ecosystem-arcade` | repeatable, e.g. owner, costCenter, event, deleteAfter |
 | `--access-days <n>` | `180` | lifetime of the API's pass to the score files |
+| `--allow-origin <url,url>` | none | other sites allowed to send scores, e.g. a custom domain `https://arcade.company.com` |
+| `--allow-local-kiosks` | off | also accept scores from kiosks that open the games as local files (with `scoresApi` in `shared/config.js` pointing at this arcade) |
 
 At the end it prints the address, e.g. `https://<random-words>.azurestaticapps.net/`. The first run creates `azure/.deploy.local.json` with the **admin token**. Keep that file; it's git-ignored. **Run the deploy again at least every 180 days** (or whatever `--access-days` you set) to renew the API's pass to the score files.
 

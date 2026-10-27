@@ -104,6 +104,86 @@ describe('score rules (scores-core.js)', () => {
     assert.match(core.parseDay('not a day'), /^\d{4}-\d{2}-\d{2}$/);
   });
 
+  test('names: letters (any language), spaces, hyphens and apostrophes only', () => {
+    for (const name of ['Ana', 'Anne-Marie', "O'Neil", 'Ana Lucía', 'राहुल', 'Zoë']) {
+      assert.ok(core.cleanScore({ ...ok, name }, now), name);
+    }
+    for (const name of ['Ana123', 'Ana😀', '<script>', 'a.b', '-Ana', 'Ana-', "'", 'x@y', '1337']) {
+      assert.equal(core.cleanScore({ ...ok, name }, now), null, name);
+    }
+  });
+
+  test('blocked words: refused even split up, but real names that contain short ones are fine', () => {
+    const { isBlocked, words } = core.loadNameFilter(join(ROOT, 'server'));
+    assert.ok(words.length > 40, 'the starter list is loaded');
+    for (const name of ['Kshitij', 'Cassandra', 'Analia', 'Sexton', 'Dickens', 'Ana', 'Grape', 'Shitanshu']) {
+      assert.ok(core.cleanScore({ ...ok, name }, now, isBlocked), `${name} should be allowed`);
+    }
+    for (const name of ['Fuck', 'Shit Head', 'Big Bitch', 'B i t c h', 'Chutiya', 'Mr Nazi']) {
+      assert.equal(core.cleanScore({ ...ok, name }, now, isBlocked), null, `${name} should be refused`);
+    }
+  });
+
+  test('per-game extras shown next to names (rank, token) get the same filter and a length cap', () => {
+    const { isBlocked } = core.loadNameFilter(join(ROOT, 'server'));
+    assert.equal(core.cleanScore({ ...ok, rank: 'Shit' }, now, isBlocked), null);
+    assert.equal(core.cleanScore({ ...ok, rank: 'Chief Detective' }, now, isBlocked).details.rank, 'Chief Detective');
+    assert.equal(core.cleanScore({ ...ok, token: '🦊'.repeat(30) }, now, isBlocked).details.token.length <= 20, true);
+  });
+
+  test('score limits are at or above what each game can really produce (recomputed from game settings)', () => {
+    const vm = require('node:vm');
+    const fs = require('node:fs');
+    const load = (...files) => { const ctx = { window: {} }; vm.createContext(ctx); for (const f of files) vm.runInContext(fs.readFileSync(join(ROOT, f), 'utf8'), ctx); return ctx.window; };
+    // Master the Map: one question per business (base 100 + speed ≤100) and journey steps (150 + ≤150),
+    // combo multiplier min(4, 1 + floor(streak / 3)), plus the mastery bonus  (values from master-the-map/game.js)
+    const mtm = load('master-the-map/questions.js');
+    const steps = mtm.QUIZ_BUSINESSES.length + mtm.QUIZ_JOURNEY.steps.length;
+    let mtmMax = mtm.QUIZ_CONFIG.masteryBonus;
+    for (let streak = 1; streak <= steps; streak++) mtmMax += (streak <= mtm.QUIZ_BUSINESSES.length ? 200 : 300) * Math.min(4, 1 + Math.floor(streak / 3));
+    assert.ok(core.GAMES['master-the-map'].maxScore >= mtmMax, `Master the Map can reach ${mtmMax}`);
+    // Evernorth City: every day builds the top level with the full speed bonus, every news event is a reward
+    const ec = load('evernorth-city/content.js').EC_CONFIG || load('evernorth-city/content.js').CITY_CONFIG;
+    if (ec) {
+      const ecMax = ec.turns * (Math.max(...ec.levelPop) + ec.speedBonusMax) + Math.floor(ec.turns / ec.newsEvery) * ec.newsReward;
+      assert.ok(core.GAMES['evernorth-city'].maxScore >= ecMax, `Evernorth City can reach ${ecMax}`);
+    }
+    // Case Files: the longest cases, every clue first try and fast, every case perfect
+    const cf = load('case-files/questions.js', 'case-files/content.js');
+    const cfg = cf.CF_CONFIG;
+    const longest = cf.CF_CASES.map((c) => c.steps.length).sort((a, b) => b - a).slice(0, cfg.casesPerGame);
+    const cfMax = longest.reduce((sum, n) => sum + n * (cfg.stepPoints[0] + cfg.speedBonus[0][1]) + cfg.perfectCaseBonus, 0);
+    assert.ok(core.GAMES['case-files'].maxScore >= cfMax, `Case Files can reach ${cfMax}`);
+  });
+
+  test('pages on other websites may not send or wipe scores; JSON only; 25 scores per upload', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', allowedOrigins: ['https://arcade.example'], log: { error() {} } });
+    const post = (headers, n = 1) => api({ method: 'POST', path: '/api/scores', query: {}, ip: '9.9.9.9',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ scores: Array.from({ length: n }, (_, i) => ({ ...ok, id: `o${i}` })) }) });
+    assert.equal((await post({ origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post({ origin: 'https://arcade.example' })).status, 200);
+    assert.equal((await post({})).status, 200, 'no Origin header (not a web page): allowed, rate-limited');
+    assert.equal((await post({ 'content-type': 'text/plain' })).status, 415);
+    assert.equal((await post({}, 25)).status, 200);
+    assert.equal((await post({}, 26)).status, 400);
+    const del = await api({ method: 'DELETE', path: '/api/scores', query: {}, ip: '9.9.9.9', headers: { origin: 'https://evil.example', 'x-admin-token': 'secret-token-1234567' } });
+    assert.equal(del.status, 403);
+  });
+
+  test('wrong admin tokens: after 10 in a minute that address is paused; others are not', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
+    const del = (token, ip) => api({ method: 'DELETE', path: '/api/scores', query: {}, ip, headers: { 'x-admin-token': token } });
+    for (let i = 0; i < 10; i++) assert.equal((await del('guess', '6.6.6.6')).status, 401);
+    assert.equal((await del('guess', '6.6.6.6')).status, 429);
+    assert.equal((await del('secret-token-1234567', '6.6.6.6')).status, 429, 'paused even with the right token');
+    assert.equal((await del('secret-token-1234567', '7.7.7.7')).status, 200, 'other addresses unaffected');
+  });
+
   test('admin token: X-Admin-Token or Authorization: Bearer, must match exactly', async () => {
     const { createApi } = require('../server/scores-api.js');
     const store = { put: async () => true, top: async () => [], clear: async () => 0 };

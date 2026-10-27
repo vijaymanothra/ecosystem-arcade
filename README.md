@@ -142,7 +142,15 @@ If the host only serves static files and can't run Node, host the games there an
 | `SERVE_STATIC` | `1` | `0` = API only, when the games are hosted somewhere else |
 | `TRUST_PROXY` | `0` | `1` when the server sits behind a proxy or load balancer, so rate limits see each real client |
 
-**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/scores-core.js`) are refused, each address can upload at most 300 times a minute (offices often share one address, so this is sized for about 1,000 people on one network; change `POSTS_PER_MINUTE` in `server/scores-core.js`), and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
+**Protection built in** (all in `server/scores-core.js` and `server/scores-api.js`, shared by every host):
+- **Impossible scores are refused.** Each game's limit (`GAMES`) is set just above the highest score it can actually produce; `npm test` recomputes this from the game settings.
+- **Names** are letters (any language), spaces, hyphens and apostrophes only, up to 20 characters.
+- **Blocked words** in `server/blocked-words.txt` (a starter list; add your own) are refused in names and in the rank/token text shown beside them.
+- **Volume limits:** at most 25 scores per upload, and each address can upload at most 300 times a minute. Offices often share one address, so this is sized for about 1,000 people on one network (`POSTS_PER_MINUTE`).
+- **Website restriction:** with `ALLOWED_ORIGIN` set, only those sites' pages can send scores; uploads must be JSON.
+- **Admin token:** wiping needs it (`X-Admin-Token` header), and 10 wrong tokens in a minute pause that address.
+
+Players can still fake a score up to a game's limit from the browser's developer tools, so check the top entries before handing out valuable prizes.
 
 **Clearing scores:** `Ctrl+Shift+X` twice in a game only clears that kiosk's view of the board. To wipe the shared board, start the server with an `ADMIN_TOKEN` and run:
 
@@ -228,7 +236,7 @@ If you use shared leaderboards:
 
 - [ ] Confirm the host keeps files across restarts (see the hosting table above).
 - [ ] Set an `ADMIN_TOKEN` so you can wipe test scores, and keep it private.
-- [ ] Lower each game's `maxScore` in `server/scores-core.js` to just above a real top score.
-- [ ] Add words to `server/blocked-words.txt`.
+- [ ] If you changed a game's scoring settings, run `npm test`. It checks each game's `maxScore` is still above what the game can produce.
+- [ ] Review `server/blocked-words.txt` and add words your event needs.
 - [ ] Point every kiosk at the server, save a test score on one and check it appears on another.
 - [ ] Set up backups of the database.

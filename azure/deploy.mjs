@@ -14,6 +14,9 @@
 //    --tag key=value               repeatable, e.g. --tag owner=vijay --tag deleteAfter=2027-01-31
 //    --access-days <n>             how long the API's pass to the score files lasts (default 180;
 //                                  every deploy issues a fresh one)
+//    --allow-origin <url,url>      other sites allowed to send scores besides the arcade itself,
+//                                  e.g. a custom domain https://arcade.company.com
+//    --allow-local-kiosks          also accept scores from kiosks that open the games as local files
 //
 //  Needs: Azure CLI (az login), Node.js 22.13+. The admin token for wiping scores is generated
 //  on the first deploy and kept in azure/.deploy.local.json (git-ignored).
@@ -32,6 +35,10 @@ const sku = opts.sku === 'Standard' ? 'Standard' : 'Free';
 const accessDays = Math.min(365, Math.max(1, Number(opts['access-days']) || 180));
 const tags = Object.fromEntries(opts.tag.filter((t) => typeof t === 'string' && t.includes('=')).map((t) => [t.slice(0, t.indexOf('=')), t.slice(t.indexOf('=') + 1)]));
 tags.app = tags.app || 'ecosystem-arcade';
+const extraOrigins = [
+  ...(typeof opts['allow-origin'] === 'string' ? opts['allow-origin'].split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean) : []),
+  ...(opts['allow-local-kiosks'] ? ['null'] : []),
+].join(',');
 
 try {
   // ---------------------------------------------------------------- who and where
@@ -75,6 +82,7 @@ try {
       tags: { value: tags },
       adminToken: { value: settings.adminToken },
       scoresAccessExpiry: { value: new Date(Date.now() + accessDays * 86400000).toISOString().replace(/\.\d+Z$/, 'Z') },
+      extraAllowedOrigins: { value: extraOrigins },
     },
   }, null, 2));
   const template = join(AZURE_DIR, 'main.bicep');
@@ -84,7 +92,7 @@ try {
       console.log('\nThe resource group doesn\'t exist yet, so here is everything the template creates:');
       console.log('  • Static Web App  swa-' + cfg.name + `  (${sku} plan, ${cfg.location})  — the games + scores API`);
       console.log('  • Storage Account st' + cfg.name.replace(/-/g, '') + '…  (Standard LRS, private) with container "scores", versioning, soft delete, a 30-day version cleanup rule');
-      console.log('  • App settings on the Static Web App: SCORES_CONTAINER_URL (limited pass to the scores container), ADMIN_TOKEN, ALLOWED_ORIGIN');
+      console.log(`  • App settings on the Static Web App: SCORES_CONTAINER_URL (limited pass to the scores container), ADMIN_TOKEN, ALLOWED_ORIGIN (the arcade itself${extraOrigins ? ` + ${extraOrigins}` : ''})`);
     } else {
       step('What would change (Azure what-if; nothing is changed)');
       az(['deployment', 'group', 'what-if', '--resource-group', cfg.group, '--template-file', template, '--parameters', `@${paramsFile}`]);

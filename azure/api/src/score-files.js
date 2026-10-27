@@ -20,6 +20,8 @@ const byRank = (a, b) => (b.score - a.score) || (a.at - b.at);
 function createScoreFiles(backend, {
   maxTries = 8,           // attempts per save when others keep saving at the same moment
   readCacheMs = 1000,     // a leaderboard asks for today's and all-time lists; read each file once
+  maxScoresPerFile = 20000, // ~3 MB; a real event stays far below. A spam flood stops here instead of
+                            // making every save rewrite an ever-bigger file. Wipe the spam to continue.
   wait = (ms) => new Promise((r) => setTimeout(r, ms)),
 } = {}) {
   const fileName = (game) => `${game}.json`;
@@ -53,7 +55,13 @@ function createScoreFiles(backend, {
 
   return {
     async put(score) {
-      const { written } = await update(score.game, (list) => (list.some((e) => e.id === score.id) ? null : [...list, score]));
+      const { written } = await update(score.game, (list) => {
+        if (list.some((e) => e.id === score.id)) return null;
+        if (list.length >= maxScoresPerFile) {
+          throw Object.assign(new Error(`${fileName(score.game)} holds ${list.length} scores, the most allowed; wipe test or spam scores to continue`), { code: 'SCORES_FULL' });
+        }
+        return [...list, score];
+      });
       return written;
     },
     async top(game, day, limit) {
