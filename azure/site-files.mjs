@@ -1,5 +1,5 @@
 // What gets published to the website: the game files only — nothing hidden, never server/,
-// azure/, aws/ or test/, and only known web file types (no .md, .bat, .json, .txt …).
+// azure/ or test/, and only known web file types (no .md, .bat, .json, .txt …).
 // Also builds the security headers file with fingerprints (hashes) of the inline scripts.
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const { CONTENT_TYPES } = createRequire(import.meta.url)('../server/scores-core.js');
 const AZURE_DIR = dirname(fileURLToPath(import.meta.url));
+// Folders never published. 'aws' covers an old local experiment folder some checkouts may still have.
 const SKIP_TOP = new Set(['server', 'azure', 'aws', 'test', 'node_modules']);
 
 // Copies the website from `root` into a fresh `dest`; returns the copied paths (relative).

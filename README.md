@@ -132,18 +132,17 @@ Games always save to the device first, so a kiosk that loses its network keeps w
 
 **Kiosks with the server:** point the kiosk browser at the server instead of the local files. For example, change the address in `start-kiosk.bat` from `file:///%~dp0index.html` to `http://your-server:3000/`. Or keep the local files and set `scoresApi` to the server's `/api` address.
 
-**Hosting it:** the server needs **one** long-running Node.js process and a disk that keeps its files across restarts, because the database is a single file (`server/data/scores.db`, or `DB_PATH`). Run `npm start` (or `node server/server.js`) and set the settings below as environment variables.
+**On Azure, use the Azure setup instead:** see [Hosting on Azure](#hosting-on-azure). It runs the same games and the same scores API without a server to manage.
+
+**Hosting the local server elsewhere:** `server/server.js` needs **one** long-running Node.js process and a disk that keeps its files across restarts, because the database is a single file (`server/data/scores.db`, or `DB_PATH`). Run `npm start` (or `node server/server.js`) and set the settings below as environment variables.
 
 | Host | Works as is? |
 |---|---|
-| A virtual machine or company server: AWS EC2 or Lightsail, Azure VM, Google Compute Engine | ✅ Yes, the best fit |
-| Platforms with a persistent volume (e.g. Fly.io, Render or Railway with a disk) | ✅ Yes |
+| A virtual machine or company server (e.g. an Azure VM) | ✅ Yes, the best fit |
+| Platforms with a persistent disk | ✅ Yes |
 | Azure App Service | ⚠️ Risky: its storage is a network share, and SQLite isn't safe on network drives |
-| Hosts with no permanent disk (containers without a volume, AWS App Runner/Elastic Beanstalk, Render free tier) | ❌ Scores are wiped on every restart or redeploy |
-| Serverless (AWS Lambda, Azure Functions, Vercel, Netlify) | ❌ Doesn't run there |
+| Hosts with no permanent disk (containers without a volume) | ❌ Scores are wiped on every restart or redeploy |
 | Several copies of the server behind a load balancer | ❌ Each copy would have its own leaderboard |
-
-For the ❌ and ⚠️ cases, the database part of `server/server.js` must move to a managed database such as PostgreSQL (AWS RDS, Azure Database for PostgreSQL). The games and the API don't change.
 
 On a VM, also put HTTPS in front (Caddy, nginx or the cloud's load balancer, with `TRUST_PROXY=1`) and run the server with a process manager such as `pm2` or a system service, so it restarts after a crash or reboot.
 

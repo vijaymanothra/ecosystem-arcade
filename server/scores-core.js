@@ -41,7 +41,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at']);
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// File types served to browsers (local server and the AWS upload).
+// File types served to browsers (local server and the Azure upload).
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
