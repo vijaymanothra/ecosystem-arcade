@@ -371,11 +371,12 @@
     placeLabel(s);
   }
 
-  // Empty lot: the sign stands at the lot's front corner. Built: it sits on the building's own roof,
-  // the highest point of that building, so it stays visible and can't be read as a neighbour's name.
+  // Empty lot: the sign sits in the middle of the lot, under its faded icon (the front corner is easily
+  // hidden by a building in front). Built: it sits on the building's own roof, the highest point of that
+  // building, so it stays visible and can't be read as a neighbour's name.
   function placeLabel(s, roof) {
-    const [x, y] = roof ? P(roof.x, roof.y, roof.z) : P(s.ox + 2, s.oy + 2);
-    const cy = roof ? y + 4 : y + 22;
+    const [x, y] = roof ? P(roof.x, roof.y, roof.z) : P(s.ox + 1, s.oy + 1);
+    const cy = roof ? y + 4 : y + 38;
     const [rect, text] = s.labelEl.children;
     rect.setAttribute('x', x - rect.getAttribute('width') / 2);
     rect.setAttribute('y', cy - 13);

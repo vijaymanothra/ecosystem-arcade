@@ -279,6 +279,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (orientation: landscape) and (max-height: 1100px) {
   #results .res-card { gap: 1.2vmin; padding: 2.6vmin 3.4vmin; }
   .res-icon { font-size: 10vmin; }
+  .res-stats { flex-wrap: nowrap; gap: 1vmin; } /* all four stats on one row */
+  .res-stats div { padding: 1vmin 1.6vmin; }
+  .res-stats span { font-size: clamp(10px, 1.5vmin, 18px); }
 }
 @media (orientation: landscape) and (max-height: 820px) {
   #results .res-card { gap: .9vmin; padding: 2vmin 3vmin; }
@@ -311,6 +314,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .res-missing-chip > span { grid-row: span 2; font-size: clamp(18px, 3vmin, 36px); line-height: 1; }
 .res-missing-chip b { font-size: clamp(12px, 1.9vmin, 22px); line-height: 1.15; }
 .res-missing-chip small { font-size: clamp(10px, 1.5vmin, 17px); color: var(--muted); font-weight: 600; line-height: 1.2; }
+/* the "not in your city yet" list needs the room: the big city icon steps aside, and a longer list
+   shows names only, so BUILD AGAIN stays on screen */
+.res-card:has(.res-missing:not([hidden])) .res-icon { display: none; }
+.res-missing-list:has(> :nth-child(4)) small { display: none; }
+.res-missing-list:has(> :nth-child(4)) .res-missing-chip > span { grid-row: auto; font-size: clamp(16px, 2.4vmin, 28px); }
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vmin; }
 .badge { padding: .9vmin 2.6vmin; border-radius: 999px; font-weight: 800; font-size: clamp(13px, 2.5vmin, 30px); background: linear-gradient(180deg, #7b4dff, #4b23c9); box-shadow: 0 .6vmin 0 #2b1180; animation: pop .5s backwards; }
 .actions { display: flex; justify-content: center; align-items: center; gap: 2.4vmin; flex-wrap: wrap; margin-top: 1vmin; }
