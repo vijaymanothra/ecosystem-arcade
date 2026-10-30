@@ -597,6 +597,9 @@
   }
 
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     teardown();
     resetReady();
     renderLeaderboard(highlightId);
@@ -841,7 +844,12 @@
     renderBlindSpot($('#blind'), l, s.blind);
     renderSoloBadges(l, s, completed);
 
-    const qualifies = isHighScore(G.finalScore);
+    // every finished solo score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.finalScore, G.finalAcc).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.finalScore);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
 

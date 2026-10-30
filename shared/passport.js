@@ -128,6 +128,7 @@
       .eap-home{position:relative;width:clamp(34px,4.6vmin,52px);height:clamp(34px,4.6vmin,52px);border-radius:50%;border:0;cursor:pointer;
         background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,26px);display:grid;place-items:center;touch-action:manipulation;transition:transform .1s}
       .eap-home:active{transform:scale(.9)}
+      .eap-saved{flex-basis:100%;width:100%;margin:0 0 .6vmin;text-align:center;font:800 clamp(14px,2.4vmin,30px) "Segoe UI",system-ui,sans-serif;color:#2ee59d;text-shadow:0 2px 6px rgba(0,0,0,.45)}
       .eap-stamp{position:fixed;left:50%;top:10vh;z-index:9999;transform:translateX(-50%);pointer-events:none;text-align:center;
         background:#fff8e6;color:#2b2118;border:8px double #d62828;border-radius:18px;padding:2.2vmin 4vmin;font-family:"Segoe UI",system-ui,sans-serif;
         box-shadow:0 18px 50px rgba(0,0,0,.5);animation:eapSlam .6s cubic-bezier(.3,1.6,.5,1) both}
@@ -362,6 +363,23 @@
     document.body.append(box);
   }
 
+  // ---------------------------------------------------------------- scores save themselves
+  // Games save a finished score automatically under the signed-in name, then show this note just
+  // before `anchor` (the results screen's buttons). name null = remove the note.
+  function savedNote(anchor, name) {
+    if (!anchor || !anchor.parentElement) return;
+    injectStyles();
+    let note = anchor.parentElement.querySelector(':scope > .eap-saved');
+    if (!name) { if (note) note.remove(); return; }
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'eap-saved';
+      note.setAttribute('role', 'status');
+      anchor.parentElement.insertBefore(note, anchor);
+    }
+    note.textContent = `✅ Saved to the leaderboard as ${name}`;
+  }
+
   // ---------------------------------------------------------------- a name is required to play
   // No guest play: a game opened without a signed-in player (a direct link, or after the home screen
   // signed an idle player out) sends them to the home screen's name prompt, then on into this game.
@@ -387,7 +405,7 @@
     } catch { return null; }
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame };
+  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

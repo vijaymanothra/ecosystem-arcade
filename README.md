@@ -53,9 +53,11 @@ To preview on a laptop: open the arcade in Chrome or Edge, press `F12`, then `Ct
 
 Passports reset each day. Two people with the same first name share a passport, so suggest adding an initial (e.g. "AlexK").
 
-**Getting on the leaderboard is one tap.** When a game ends with a score good enough for today's top 10, the player taps **Save**, and the score is stored under the name they signed in with; there's no keyboard at the end. The score is only recorded after that tap. Exceptions:
-- **The Health Journey with 2–4 players:** the winner may not be the person who signed in, so Save asks for the **winner's** name, starting empty.
+**Scores save themselves.** When a game ends, the score is saved automatically under the name the player signed in with, and the results screen shows *"✅ Saved to the leaderboard as Priya"*. Every finished score is kept, so staff see them all in the admin page and CSV; the leaderboards show the top 10. The name prompt tells players their name and scores will appear on the leaderboards. Exceptions:
+- **The Health Journey with 2–4 players:** the winner may not be the person who signed in, so **Save winner's score** asks for the winner's name, starting empty.
 - **Route Rush Duel** scores are never saved.
+
+Staff can remove any entry from the [admin page](#for-event-staff-the-admin-page).
 
 The "Passport stamped!" popup at the end of a game disappears on its own, or as soon as the player taps anything.
 

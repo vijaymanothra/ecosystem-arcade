@@ -157,6 +157,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .sheet p { font-size: clamp(14px, 2.5vmin, 32px); font-weight: 600; color: #e8e4ff; margin-top: .6vmin; }
 .name-box { min-width: 60vmin; height: 11vmin; display: flex; align-items: center; justify-content: center; font-size: 8vmin; font-weight: 900; letter-spacing: .06em; border-bottom: 1vmin solid var(--accent); }
 .name-box::after { content: "_"; color: var(--accent); animation: blinkText 1s steps(2) infinite; }
+.sheet .name-note { margin-top: 0; font-size: clamp(12px, 1.9vmin, 22px); color: var(--muted); font-weight: 600; text-align: center; }
 .keys { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.1vmin; width: min(100%, 92vmin); }
 .key { height: 8vmin; border-radius: 1.4vmin; background: rgba(255,255,255,.14); font-size: clamp(18px, 3.8vmin, 48px); font-weight: 800; box-shadow: 0 .6vmin 0 rgba(0,0,0,.4); }
 .key:active { transform: translateY(.5vmin); box-shadow: none; }

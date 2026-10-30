@@ -225,6 +225,9 @@
 
   // ================================================================ attract + desk
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     G.canPlay = false;
     clearInterval(G.tick);
@@ -672,7 +675,12 @@
     const bx = $('#rpBadges');
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.6 + i * 0.2}s`; bx.append(b); });
-    const qualifies = isHighScore(G.score);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.score, G.rank).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.score);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('report');

@@ -351,6 +351,9 @@
   }
 
   function goLobby(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     stopAutoRoll();
     clearTimeout(G.idleTimer);
@@ -921,7 +924,12 @@
       setTimeout(() => animateNumber(total, 0, p.total, 1200), 400 + k * 150);
     });
 
-    const qualifies = isHighScore(G.winner.total);
+    // one player: saved automatically under the signed-in name.
+    // 2–4 players: the winner may be someone else, so Save asks for the winner's name.
+    const autoName = soloName();
+    if (autoName) G.savedId = addScore(autoName, G.winner.total, G.winner.stamps.size, G.winner.def.token).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.winner.total);
     $('#saveBtn').hidden = !qualifies;
     $('#saveBtn').textContent = G.players.length === 1 ? 'SAVE MY SCORE' : "SAVE WINNER'S SCORE";
     $('#againBtn').hidden = qualifies;

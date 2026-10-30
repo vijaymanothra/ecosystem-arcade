@@ -507,6 +507,9 @@
 
   // ================================================================ attract
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     clearInterval(G.autoTimer);
     clearTimeout(G.idleTimer);
@@ -937,7 +940,12 @@
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.8 + i * 0.2}s`; bx.append(b); });
 
-    const qualifies = isHighScore(G.pop);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.pop, CITY_BIZ.filter((b) => city.slots[b.id].level > 0).length).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.pop);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('results');
