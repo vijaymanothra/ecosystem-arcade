@@ -272,6 +272,19 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (max-width: 640px), (max-height: 500px) {
   .drag-hint { left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 16px); transform: none;
     white-space: normal; text-align: center; font-size: 12px; padding: 5px 12px; }
+  /* case closed / report: the whole journey in one compact row, and if a long case still doesn't fit,
+     the screen scrolls (auto margins keep it centred when it does fit) so the next button is always reachable */
+  #closed, #report { overflow-y: auto; justify-content: flex-start; }
+  .closed-card, .report-card { margin: auto; flex-shrink: 0; }
+  .closed-card { width: 100%; padding: 12px 14px; gap: 6px; }
+  .closed-card h1 { font-size: 26px; }
+  .chain { flex-wrap: nowrap; margin: 2px 0; }
+  .link { width: auto; flex: 1 1 0; min-width: 0; padding: 6px; }
+  .link .li { font-size: 22px; }
+  .link .ln { font-size: 12px; }
+  .link .lf { font-size: 10px; }
+  .arrow { font-size: 14px; padding: 0 2px; }
+  .closed-stamp { font-size: 18px; bottom: 10px; right: 12px; }
 }
 
 @media (orientation: portrait) {
