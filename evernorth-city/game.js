@@ -615,19 +615,31 @@
   }
 
   // ---- blueprints
+  // Each day's three blueprints always give a real choice: at least one NEW business while any are
+  // still unbuilt (so all of them can be built in the game's days) and at least one UPGRADE once
+  // something is built. The third card is random as before, favouring new and low-level ones.
   function dealOptions() {
     const cands = CITY_BIZ.filter((b) => city.slots[b.id].level < 3 && QUESTIONS.some((q) => q.business === b.id));
     const weight = (b) => [3, 2, 1][city.slots[b.id].level] || 0;
-    const chosen = [];
-    const pool = cands.slice();
-    while (chosen.length < 3 && pool.length) {
-      const total = pool.reduce((t, b) => t + weight(b), 0);
+    const takeFrom = (list) => {
+      const total = list.reduce((t, b) => t + weight(b), 0);
       let r = Math.random() * total;
       let idx = 0;
-      for (; idx < pool.length; idx++) { r -= weight(pool[idx]); if (r <= 0) break; }
-      chosen.push(pool.splice(Math.min(idx, pool.length - 1), 1)[0]);
+      for (; idx < list.length; idx++) { r -= weight(list[idx]); if (r <= 0) break; }
+      return list.splice(Math.min(idx, list.length - 1), 1)[0];
+    };
+    const pool = cands.slice();
+    const chosen = [];
+    const fresh = pool.filter((b) => city.slots[b.id].level === 0);
+    const upgrades = pool.filter((b) => city.slots[b.id].level > 0);
+    for (const group of [fresh, upgrades]) {
+      if (!group.length) continue;
+      const b = takeFrom(group);
+      chosen.push(b);
+      pool.splice(pool.indexOf(b), 1);
     }
-    return chosen;
+    while (chosen.length < 3 && pool.length) chosen.push(takeFrom(pool));
+    return shuffle(chosen);
   }
 
   function chooseBlueprint() {
@@ -939,6 +951,19 @@
     const bx = $('#resBadges');
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.8 + i * 0.2}s`; bx.append(b); });
+
+    // every business is shown: the ones this city didn't build are listed with what they do
+    const missing = CITY_BIZ.filter((b) => city.slots[b.id].level === 0);
+    const ml = $('#resMissingList');
+    ml.replaceChildren();
+    for (const b of missing) {
+      const chip = el('span', 'res-missing-chip');
+      chip.style.setProperty('--bc', b.color);
+      chip.title = ROLES[b.id] || '';
+      chip.append(el('span', null, b.icon), el('b', null, b.short || b.name), el('small', null, ROLES[b.id] || ''));
+      ml.append(chip);
+    }
+    $('#resMissing').hidden = !missing.length;
 
     // every finished score is saved automatically under the signed-in name
     // (Save + name screen only if no name is known, e.g. a browser that can't store it)
