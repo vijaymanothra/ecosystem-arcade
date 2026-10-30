@@ -70,6 +70,9 @@ window.RR_REQUESTS = [
   { to: 'cigna', from: '👨 Member',     text: 'I need a dental plan that can include vision and hearing.' },
   { to: 'cigna', from: '🤝 Broker',     text: 'My client wants quotes on group health insurance.' },
   { to: 'cigna', from: '👩 Member',     text: 'Which in-network doctors does my health plan cover?' },
+  { to: 'cigna', from: '🧳 Member',     text: 'I\'m retiring overseas and need international health insurance.', tip: 'Cigna Global serves expats, retirees, students & families → Cigna Healthcare' },
+  { to: 'cigna', from: '🏢 Employer',   text: 'We have 40 staff working abroad and need global health plans.', tip: 'Cigna Global covers small businesses (2–149 employees) and large corporates' },
+  { to: 'cigna', from: '👨 Member',     text: 'It\'s midnight — can I shop for a dental plan online right now?', tip: 'Cigna dental plans can be shopped online 24/7/365' },
 
   // ---------- Express Scripts ----------
   { to: 'express', from: '🏢 Employer',    text: 'We need a partner to manage our prescription drug benefit.', tip: 'Managing pharmacy benefits = the PBM → Express Scripts' },
@@ -80,6 +83,9 @@ window.RR_REQUESTS = [
   { to: 'express', from: '🤝 Union',       text: 'Our labor union needs pharmacy benefits for its members.' },
   { to: 'express', from: '👨 Member',      text: 'My blood-pressure refill is due — send it to my house.', tip: 'Everyday (non-GLP-1) home delivery → Express Scripts Pharmacy' },
   { to: 'express', from: '🏛️ Agency',      text: 'Our federal agency needs pharmacy benefit services.' },
+  { to: 'express', from: '👩 Member',      text: 'Set up automatic refills on my long-term meds, delivered home.' },
+  { to: 'express', from: '🏙️ City',        text: 'Our city government needs pharmacy benefits for its employees.', tip: 'Express Scripts serves the public sector, unions, employers and health plans' },
+  { to: 'express', from: '👨 Member',      text: 'Where can I track the coverage review for my prescription?', tip: 'Express Scripts calls pharmacy prior authorizations "coverage reviews"' },
 
   // ---------- Accredo ----------
   { to: 'accredo', from: '👩 Member',    text: 'I have a rare disease and need a complex specialty medication.' },
@@ -90,6 +96,9 @@ window.RR_REQUESTS = [
   { to: 'accredo', from: '👩 Member',    text: 'I need help with approvals and copay assistance for my specialty therapy.' },
   { to: 'accredo', from: '👨 Member',    text: 'Can my specialty medication be delivered to my doctor\'s office?' },
   { to: 'accredo', from: '👩 Member',    text: 'My complex condition needs dose reminders and care coordination.' },
+  { to: 'accredo', from: '👨 Member',    text: 'My hemophilia medication needs refrigerated shipping to my home.', tip: 'Accredo ships refrigerated specialty meds with coolant packs' },
+  { to: 'accredo', from: '👩 Member',    text: 'I have multiple sclerosis and need my specialty medication delivered.' },
+  { to: 'accredo', from: '👨 Member',    text: 'I need a copay assistance program for my specialty drug.', tip: 'Accredo\'s Copay Assistance search tool → Accredo' },
 
   // ---------- EnGuide ----------
   { to: 'enguide', from: '👩 Member',  text: 'My doctor prescribed a GLP-1 — can I get it delivered with dosing help?', tip: 'GLP-1 home delivery + dose guidance → EnGuide' },
@@ -98,6 +107,8 @@ window.RR_REQUESTS = [
   { to: 'enguide', from: '👨‍⚕️ Doctor', text: 'My patient is starting a GLP-1 and needs a pharmacy that guides them.' },
   { to: 'enguide', from: '👨 Member',  text: 'Can a pharmacist help me reach my optimal GLP-1 dose safely?' },
   { to: 'enguide', from: '👩 Member',  text: 'Can I use my GLP-1 manufacturer savings card with home delivery?' },
+  { to: 'enguide', from: '👨 Member',  text: 'Remind me 7 days before my GLP-1 refill is due.', tip: 'EnGuide sends GLP-1 refill reminders 7 days and 2 days ahead' },
+  { to: 'enguide', from: '👩 Member',  text: 'Can my GLP-1 pharmacist work with my doctor to help me save money?' },
 
   // ---------- Freedom Fertility ----------
   { to: 'freedom', from: '👩 Member',  text: 'I\'m nervous about my fertility injections — are there video guides?', tip: 'MedTEACH injection videos → Freedom Fertility' },
@@ -106,13 +117,15 @@ window.RR_REQUESTS = [
   { to: 'freedom', from: '👨 Member',  text: 'Our clinic prescribed a compounded fertility medication — please ship it.' },
   { to: 'freedom', from: '👩 Member',  text: 'New fertility order — help me "Get StARTed".', tip: '"Get StARTed" is Freedom Fertility\'s onboarding' },
   { to: 'freedom', from: '👩 Member',  text: 'It\'s midnight — I want to order my fertility refills online now.' },
-
+  { to: 'freedom', from: '👨‍⚕️ Doctor', text: 'I\'m sending a fertility prescription to "America\'s Leading Fertility Pharmacy".', tip: '"America\'s Leading Fertility Pharmacy" → Freedom Fertility' },
   // ---------- Village Fertility ----------
   { to: 'vfp', from: '👩 Member',     text: 'I\'m in Chicago — can I pick up my fertility meds in person today?', tip: 'On-site pickup in Boston, Chicago, Phoenix & LA → Village Fertility' },
   { to: 'vfp', from: '👩 Member',     text: 'Boston patient here — I\'d rather collect my IVF medication on-site.' },
   { to: 'vfp', from: '🏥 Clinic',     text: 'Our Phoenix fertility clinic wants a local fertility pharmacy partner.' },
   { to: 'vfp', from: '👨 Member',     text: 'I\'m in Los Angeles and want to pick up our fertility meds at the pharmacy.' },
   { to: 'vfp', from: '🏥 Clinic',     text: 'Our fertility clinic staff would like medication education sessions.', tip: 'Village Fertility offers education services for clinic staff' },
+  { to: 'vfp', from: '👩 Member',     text: 'I\'m in Phoenix — can I pick up my IVF meds at the old Integrity Rx?', tip: 'Integrity Rx (Phoenix, LA) is now part of Village Fertility' },
+  { to: 'vfp', from: '🏥 Clinic',     text: 'Our IVF nurses want continuing-education classes on fertility meds.', tip: 'Village Fertility is an approved continuing-education provider for nurses' },
 
   // ---------- MDLIVE ----------
   { to: 'mdlive', from: '👩 Member', text: 'It\'s 2 a.m. and I have a sinus infection — I need a doctor now.' },
@@ -122,6 +135,9 @@ window.RR_REQUESTS = [
   { to: 'mdlive', from: '👩 Member', text: 'I need a virtual primary care check-up for my blood pressure.' },
   { to: 'mdlive', from: '👨 Member', text: 'Fever on a holiday weekend — can I see a doctor by video?' },
   { to: 'mdlive', from: '👩 Member', text: 'I need an ASL interpreter for my virtual doctor visit.' },
+  { to: 'mdlive', from: '👪 Parent', text: 'My 14-year-old wants to talk to a therapist by video.', tip: 'MDLIVE therapy includes ages 10–17. Behavioral Care Group treats adults 18+' },
+  { to: 'mdlive', from: '👨 Member', text: 'I\'d like my yearly wellness screening without leaving home.' },
+  { to: 'mdlive', from: '👩 Member', text: 'I need a psychiatrist by video to talk about medication.', tip: 'MDLIVE offers virtual psychiatry. Behavioral Care Group doesn\'t offer psychiatry' },
 
   // ---------- Evernorth Behavioral Care Group ----------
   { to: 'ebcg', from: '👫 Couple',   text: 'My partner and I want couples counseling in person.', tip: 'In-person therapy for couples & families → Behavioral Care Group' },
@@ -129,6 +145,8 @@ window.RR_REQUESTS = [
   { to: 'ebcg', from: '👩 Member',   text: 'I\'d like to see a therapist face-to-face at a local office.' },
   { to: 'ebcg', from: '👨 Member',   text: 'I want to find a therapist near me and book through a client portal.' },
   { to: 'ebcg', from: '👩 Member',   text: 'I\'m feeling anxious and want ongoing in-person therapy.' },
+  { to: 'ebcg', from: '💍 Couple',   text: 'We\'re engaged and want pre-marital counseling in person.' },
+  { to: 'ebcg', from: '👨 Member',   text: 'Burnout at work — can a Care Navigator match me with a therapist?', tip: 'Care Navigators match patients to therapists → Behavioral Care Group' },
 
   // ---------- EviCore ----------
   { to: 'evicore', from: '🏛️ Health plan', text: 'We need clinical review of MRI and CT scan requests.', tip: 'Prior auth & utilization management for plans → EviCore' },
@@ -138,6 +156,9 @@ window.RR_REQUESTS = [
   { to: 'evicore', from: '🏛️ Health plan', text: 'We want utilization management for radiation oncology.' },
   { to: 'evicore', from: '🏛️ Health plan', text: 'Our members are missing preventive screenings — can you do outreach?' },
   { to: 'evicore', from: '👨‍⚕️ Doctor',     text: 'I\'d like a peer-to-peer review on a sleep study request.' },
+  { to: 'evicore', from: '👨‍⚕️ Doctor',     text: 'Our Epic EHR should submit medical prior authorizations automatically.', tip: 'EviCore intelliPath® connects to EHRs like Epic' },
+  { to: 'evicore', from: '🏛️ Health plan', text: 'Help us manage the cost of surgical implants.', tip: 'Implant Management is part of EviCore\'s payment integrity solutions' },
+  { to: 'evicore', from: '🏛️ Health plan', text: 'We need home health care coordination for our members.' },
 
   // ---------- CuraScript SD ----------
   { to: 'curascript', from: '🏥 Hospital', text: 'Our infusion center needs to restock specialty drugs.', tip: 'Supplying hospitals & clinics = CuraScript SD (Specialty Distribution)' },
@@ -147,6 +168,9 @@ window.RR_REQUESTS = [
   { to: 'curascript', from: '🏥 Hospital', text: 'Please ship biosimilars to our hospital pharmacy department.' },
   { to: 'curascript', from: '🏥 Clinic',   text: 'Our eye clinic needs to restock its injectable medications.' },
   { to: 'curascript', from: '🏥 Hospital', text: 'We need third-party logistics for our specialty products.' },
+  { to: 'curascript', from: '🧪 Pharma',   text: 'Our rare-disease drug needs a DISTRIBUTOR with stat delivery to hospitals.', tip: 'Stat delivery within hours to providers → CuraScript SD' },
+  { to: 'curascript', from: '🏥 Surgery center', text: 'Our surgery center needs specialty products delivered.' },
+  { to: 'curascript', from: '🏥 Clinic',   text: 'Our neurology practice wants to order specialty drugs online.' },
 ];
 
 // Rush events: requests from these businesses flood in, faster, for double points.

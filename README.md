@@ -98,7 +98,7 @@ All text content lives in plain JavaScript files you can edit in any text editor
 
 | What | File |
 |---|---|
-| Business names, colors, icons + the 60 quiz questions | `questions.js` inside each game folder (Master the Map, Health Journey, Evernorth City and Case Files each have their own copy) |
+| Business names, colors, icons + the 121 quiz questions | `questions.js` inside each game folder (Master the Map, Health Journey, Evernorth City and Case Files each have their own copy) |
 | Route Rush requests, levels, rush events | `route-rush/content.js` |
 | Board layout, event cards, round limits | `health-journey/content.js` |
 | City layout, news events, timings | `evernorth-city/content.js` |
