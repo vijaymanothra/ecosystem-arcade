@@ -310,6 +310,8 @@ body.rush #arena::after {
 #soTitle.lose { color: var(--bad); }
 #soSub { font-size: clamp(16px, 3vmin, 38px); color: #e8e4ff; font-weight: 700; margin-top: 1vmin; }
 .final { text-align: right; }
+/* the score sits top-right, where the player's 🏠 badge is: keep it just below the badge */
+@media (min-width: 641px) { .eap-has-bar .over-top .final { padding-top: clamp(44px, 6.4vmin, 72px); } }
 #soScore { font-size: clamp(48px, 11vmin, 150px); font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 #soBonus { min-height: 1.3em; font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; color: var(--good); }
 .over-mid { display: flex; gap: 3vmin; align-items: stretch; flex: 1; min-height: 0; }

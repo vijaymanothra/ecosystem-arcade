@@ -313,6 +313,7 @@
     });
     bar.append(chip, home);
     document.body.append(bar);
+    document.body.classList.add('eap-has-bar'); // games keep top-right content clear of the badge
     updateChip();
 
     // idle → back to the launcher
