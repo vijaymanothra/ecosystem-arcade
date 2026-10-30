@@ -196,8 +196,17 @@
       box.append(x);
     }
     document.body.append(box);
-    setTimeout(() => box.classList.add('out'), 3600);
-    setTimeout(() => box.remove(), 4100);
+    // it fades on its own, or as soon as the player taps anything, so it never covers what they want next
+    let gone = false;
+    const dismiss = () => {
+      if (gone) return;
+      gone = true;
+      document.removeEventListener('pointerdown', dismiss, true);
+      box.classList.add('out');
+      setTimeout(() => box.remove(), 450);
+    };
+    document.addEventListener('pointerdown', dismiss, true);
+    setTimeout(dismiss, 3600);
   }
 
   function updateChip() {

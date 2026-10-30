@@ -1104,7 +1104,14 @@
   $('#soloBtn').addEventListener('click', () => startGame('solo'));
   $('#duelBtn').addEventListener('click', goReady);
   $('#readyBack').addEventListener('click', () => goAttract());
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', () => startGame('solo'));
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#rematchBtn').addEventListener('click', () => startGame('duel'));

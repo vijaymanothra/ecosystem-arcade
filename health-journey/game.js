@@ -923,6 +923,7 @@
 
     const qualifies = isHighScore(G.winner.total);
     $('#saveBtn').hidden = !qualifies;
+    $('#saveBtn').textContent = G.players.length === 1 ? 'SAVE MY SCORE' : "SAVE WINNER'S SCORE";
     $('#againBtn').hidden = qualifies;
     show('results');
     Sound.fanfare();
@@ -968,8 +969,20 @@
     $('#nameBox').textContent = G.name;
     $('#keys .ok').disabled = !G.name;
   }
+  // The signed-in player's name, or '' when several people played (the winner may be someone else).
+  function soloName() {
+    return G.players.length === 1 ? ((window.Passport && window.Passport.currentName(NAME_MAX)) || '') : '';
+  }
+  // One player: Save stores the score under their signed-in name, one tap.
+  // Several players: ask for the winner's name, starting empty, so it isn't saved under the wrong person.
+  function saveTapped() {
+    const name = soloName();
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  }
   function goEntry() {
-    G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
+    G.name = soloName();
     renderName();
     $('#entryWho').textContent = `${G.winner.def.token} ${G.winner.def.name}`;
     $('#entryTop').textContent = CFG.leaderboardSize;
@@ -1003,7 +1016,7 @@
   // ================================================================ wiring
   $('#startBtn').addEventListener('click', () => { if (G.joined.size) startGame(); });
   $('#rollBtn').addEventListener('click', () => { Sound.unlock(); doTurn(); });
-  $('#saveBtn').addEventListener('click', goEntry);
+  $('#saveBtn').addEventListener('click', saveTapped);
   $('#againBtn').addEventListener('click', () => startGame(G.players.map((p) => p.seat)));
   $('#homeBtn').addEventListener('click', () => goLobby());
   $('#skipBtn').addEventListener('click', () => goLobby());

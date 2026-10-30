@@ -1019,7 +1019,14 @@
 
   // ================================================================ wiring
   $('#startBtn').addEventListener('click', startGame);
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());
