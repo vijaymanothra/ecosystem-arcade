@@ -209,7 +209,7 @@
     if (!chip) return;
     const c = current();
     const p = c && player(c.name);
-    chip.textContent = c ? `📮 ${c.name} · ${p ? Object.keys(p.stamps).length : 0}/${GAMES.length}` : '📮 Guest';
+    chip.textContent = c ? `📮 ${c.name} · ${p ? Object.keys(p.stamps).length : 0}/${GAMES.length}` : '📮';
   }
 
   function isBooth() {
@@ -367,12 +367,40 @@
     document.body.append(box);
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount };
+  // ---------------------------------------------------------------- a name is required to play
+  // No guest play: a game opened without a signed-in player (a direct link, or after the home screen
+  // signed an idle player out) sends them to the home screen's name prompt, then on into this game.
+  const PENDING = 'ecosystemArcade.pendingGame';
+  function storageWorks() {
+    try { localStorage.setItem('ecosystemArcade.probe', '1'); localStorage.removeItem('ecosystemArcade.probe'); return true; } catch { return false; }
+  }
+  function requireName(gameId) {
+    if (current() || !GAME[gameId]) return false;
+    // without working storage the name can't be remembered; don't loop players back to the prompt
+    if (!storageWorks()) return false;
+    try { sessionStorage.setItem(PENDING, gameId); } catch { /* the home screen just won't jump to this game */ }
+    leaving = true;
+    location.replace(homeUrl());
+    return true;
+  }
+  // the home screen asks which game a player was sent from (once)
+  function takePendingGame() {
+    try {
+      const g = sessionStorage.getItem(PENDING);
+      sessionStorage.removeItem(PENDING);
+      return GAME[g] ? g : null;
+    } catch { return null; }
+  }
+
+  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;
   const landscapeOnly = script && script.dataset.landscape !== undefined;
   const onReady = (fn) => { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); };
+  if (gameId && requireName(gameId)) return;
+  // while someone is playing, keep their sign-in alive (it lapses after 20 idle minutes)
+  if (gameId) document.addEventListener('pointerdown', touch, true);
   if (gameId) onReady(() => mount(gameId));
   if (gameId && landscapeOnly) onReady(() => landscapePrompt(GAME[gameId] ? GAME[gameId].name : 'This game'));
 })();

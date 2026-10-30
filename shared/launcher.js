@@ -256,7 +256,6 @@
     pendingGame = gameId;
     typed = '';
     renderName();
-    $('#guestBtn').hidden = !gameId;
     $('#signin').hidden = false;
   }
   function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
@@ -346,7 +345,6 @@
     t._t = setTimeout(() => { t.hidden = true; }, 3000);
   }
 
-  $('#guestBtn').addEventListener('click', () => { const g = pendingGame; closeSignin(); if (g) go(g); });
   $('#cancelBtn').addEventListener('click', () => { sfx.tap(); closeSignin(); });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
@@ -361,4 +359,7 @@
   buildKeys();
   renderAll();
   showChamp(0);
+  // sent here from a game because nobody was signed in: ask for the name, then go on to that game
+  const sentFrom = P.takePendingGame();
+  if (sentFrom) { if (P.current()) go(sentFrom); else openSignin(sentFrom); }
 })();

@@ -46,7 +46,7 @@ To preview on a laptop: open the arcade in Chrome or Edge, press `F12`, then `Ct
 
 ## Evernorth Passport
 
-1. A player taps a game on the home screen and types their first name, or chooses **Play as guest**.
+1. A player taps a game on the home screen and types their first name. **A name is required to play.** There's no guest mode: if a game is opened without a name (e.g. from a direct link), the player is taken to the home screen's name prompt first, then straight into that game.
 2. Finishing any game stamps their passport for that game.
 3. Collecting all 5 stamps makes them an **Ecosystem Expert** on the home-screen wall. This works well for a daily prize.
 4. **I'm done — next player** signs them out. The home screen also signs them out after 90 seconds of inactivity.
