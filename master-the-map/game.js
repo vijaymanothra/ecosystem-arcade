@@ -695,10 +695,13 @@
     const d = document.documentElement;
     if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {});
   }
-  function toast(msg) {
+  // above = an element to show the message just above (so it doesn't cover it)
+  function toast(msg, above) {
     const t = $('#toast');
     t.textContent = msg;
+    t.classList.toggle('above-cta', Boolean(above));
     t.hidden = false;
+    if (above) t.style.setProperty('--hint-top', `${Math.max(8, above.getBoundingClientRect().top - t.offsetHeight - 12)}px`);
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.hidden = true; }, 2500);
   }
@@ -718,9 +721,21 @@
   }
 
   // ---------------------------------------------------------------- wiring
-  $('#attract').addEventListener('click', () => {
+  // Only the play button starts a game. The business cards aren't choices — every game asks about
+  // all of them — so tapping one (or anywhere else) explains that and points at the button.
+  $('#startBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
     if (performance.now() < attractArmedAt) return;
     startGame();
+  });
+  $('#attract').addEventListener('click', (e) => {
+    if (performance.now() < attractArmedAt) return;
+    if (!e.target.closest('#attractMap .tile')) return;
+    const btn = $('#startBtn');
+    toast(`Every game asks about all ${BUSINESSES.length} businesses. Tap PLAY to start!`, btn);
+    restartAnim(btn, 'nudge');
+    clearTimeout(btn._nudge);
+    btn._nudge = setTimeout(() => btn.classList.remove('nudge'), 1300); // back to the usual pulse
   });
   $('#saveBtn').addEventListener('click', goEntry);
   $('#againBtn').addEventListener('click', startGame);
