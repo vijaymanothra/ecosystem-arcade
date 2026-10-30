@@ -402,6 +402,17 @@ body.rush #arena::after {
 /* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
 @media (max-width: 640px), (max-height: 500px) {
   .topbar { padding-right: 38px; } /* room for the small 🏠 in the corner */
+  /* level card: smaller tiles so the businesses and "Tap to start" fit; scrolls if a long list still doesn't */
+  .level-card { display: flex; overflow-y: auto; padding: 12px 16px; }
+  .lc-inner { margin: auto; gap: 8px; }
+  #lcTitle { font-size: 40px; }
+  #lcSub { font-size: 15px; }
+  .lc-tiles { gap: 8px; }
+  .lc-tile { width: 170px; padding: 8px; gap: 3px; border-radius: 12px; }
+  .lc-tile .i { font-size: 26px; }
+  .lc-tile .n { font-size: 15px; }
+  .lc-tile .r { font-size: 11.5px; }
+  .tap-hint { font-size: 15px; }
 }
 @media (max-width: 640px) {
   /* the start screen scrolls instead of squeezing, so both play buttons stay reachable */

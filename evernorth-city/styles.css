@@ -271,6 +271,22 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #results, #entry { align-items: center; justify-content: center; }
 #results { align-items: flex-end; }
 #results .res-card { width: min(100%, 40vw, 820px); background: rgba(10,10,40,.7); }
+/* a long "not in your city yet" list can make the card taller than a laptop or phone screen: then the
+   panel scrolls so BUILD AGAIN is always reachable (auto margins keep it centred when it fits) */
+#results { overflow-y: auto; justify-content: flex-start; }
+#results .res-card { margin-block: auto; flex-shrink: 0; }
+/* landscape screens up to the 1080p kiosk: a perfect city earns a third badge, so the card is kept a little tighter */
+@media (orientation: landscape) and (max-height: 1100px) {
+  #results .res-card { gap: 1.2vmin; padding: 2.6vmin 3.4vmin; }
+  .res-icon { font-size: 10vmin; }
+}
+@media (orientation: landscape) and (max-height: 820px) {
+  #results .res-card { gap: .9vmin; padding: 2vmin 3vmin; }
+  .res-icon { font-size: 7vmin; }
+  .res-card h1 { font-size: clamp(30px, 7vmin, 140px); }
+  .res-pop b { font-size: clamp(30px, 7vmin, 110px); }
+  .res-stats div { padding: .8vmin 2.2vmin; }
+}
 .res-card, .entry-card {
   width: min(100%, 120vmin); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.6vmin;
   background: rgba(10,10,40,.8); border: 2px solid rgba(255,210,63,.45); border-radius: 3vmin; padding: 3vmin 4vmin;
@@ -330,6 +346,22 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
 @media (max-width: 640px), (max-height: 500px) {
   .hud { padding-right: 44px; } /* room for the small 🏠 in the corner */
+}
+/* phone held sideways: the results card is one screen tall, so it leaves out the decorative icon and tightens up */
+@media (max-height: 500px) and (orientation: landscape) {
+  .res-icon { display: none; }
+  #results .res-card { gap: 5px; padding: 10px 14px; }
+  .res-card h1 { font-size: 30px; }
+  .res-pop b { font-size: 30px; }
+  .res-stats { gap: 6px; }
+  .res-stats div { padding: 3px 10px; }
+  .res-stats b { font-size: 18px; }
+  .res-stats span { font-size: 10px; }
+  .badges { gap: 5px; }
+  .badge { font-size: 12px; padding: 3px 10px; }
+  .res-missing-chip b { font-size: 12px; }
+  .res-missing-chip small { font-size: 10px; }
+  .actions .cta { font-size: 18px; padding: 8px 22px; }
 }
 @media (max-width: 640px) {
   /* blueprints as compact full-width cards under the city, so they don't cover it */
