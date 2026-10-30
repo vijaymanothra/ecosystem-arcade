@@ -2,7 +2,7 @@
 //  EVERNORTH PASSPORT — shared by the Arcade launcher and all games.
 //  • A player signs in once (first name) at the launcher.
 //  • Finishing any game stamps their passport (one stamp per game per day).
-//  • In booth mode (opened from the launcher) each game shows a small "hold for Arcade"
+//  • In booth mode (opened from the launcher) each game shows a small 🏠 "back to the Arcade"
 //    button and returns to the launcher after a few idle minutes.
 //  Data lives in this browser's localStorage, so it stays on the kiosk.
 // ============================================================
@@ -14,7 +14,6 @@
   const BOOTH = 'ecosystemArcade.booth';
   const SESSION_TTL_MS = 20 * 60 * 1000; // a signed-in player expires after 20 min without activity
   const IDLE_HOME_SEC = 180;              // booth mode: back to the launcher after 3 idle minutes
-  const HOLD_MS = 700;                    // hold the home button this long to leave a game
 
   const GAMES = [
     { id: 'master-the-map', name: 'Master the Map', icon: '🗺️', lb: 'masterTheMap.leaderboard.v1', color: '#7b4dff' },
@@ -127,12 +126,8 @@
         box-shadow:0 4px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;opacity:.88}
       .eap-chip{white-space:nowrap}
       .eap-home{position:relative;width:clamp(34px,4.6vmin,52px);height:clamp(34px,4.6vmin,52px);border-radius:50%;border:0;cursor:pointer;
-        background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,26px);display:grid;place-items:center;touch-action:none}
-      .eap-home svg{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg);pointer-events:none}
-      .eap-home circle{fill:none;stroke:#ffd23f;stroke-width:4;stroke-dasharray:157;stroke-dashoffset:157}
-      .eap-home.holding circle{transition:stroke-dashoffset ${HOLD_MS}ms linear;stroke-dashoffset:0}
-      .eap-tip{position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;font-size:12px;background:#000c;padding:3px 10px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none}
-      .eap-home.holding .eap-tip,.eap-home.hint .eap-tip{opacity:1}
+        background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,26px);display:grid;place-items:center;touch-action:manipulation;transition:transform .1s}
+      .eap-home:active{transform:scale(.9)}
       .eap-stamp{position:fixed;left:50%;top:10vh;z-index:9999;transform:translateX(-50%);pointer-events:none;text-align:center;
         background:#fff8e6;color:#2b2118;border:8px double #d62828;border-radius:18px;padding:2.2vmin 4vmin;font-family:"Segoe UI",system-ui,sans-serif;
         box-shadow:0 18px 50px rgba(0,0,0,.5);animation:eapSlam .6s cubic-bezier(.3,1.6,.5,1) both}
@@ -297,23 +292,14 @@
     const home = document.createElement('button');
     home.type = 'button';
     home.className = 'eap-home';
-    home.setAttribute('aria-label', 'Hold to return to the Arcade');
-    home.innerHTML = '🏠<svg viewBox="0 0 54 54"><circle cx="27" cy="27" r="25"/></svg><span class="eap-tip">Hold for Arcade</span>';
-    let holdT = 0;
-    const cancel = () => { clearTimeout(holdT); home.classList.remove('holding'); };
-    home.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      home.classList.add('holding');
-      holdT = setTimeout(() => { home.classList.remove('holding'); requestHome(); }, HOLD_MS);
-    });
-    home.addEventListener('pointerup', cancel);
-    home.addEventListener('pointerleave', cancel);
-    home.addEventListener('pointercancel', cancel);
+    home.setAttribute('aria-label', 'Back to the Arcade');
+    home.title = 'Back to the Arcade';
+    home.textContent = '🏠';
+    // one tap goes home; mid-round or with an unsaved score, the leave warning asks first
+    home.addEventListener('pointerdown', (e) => e.stopPropagation()); // the game underneath never sees this tap
     home.addEventListener('click', (e) => {
       e.stopPropagation();
-      home.classList.add('hint');
-      setTimeout(() => home.classList.remove('hint'), 1500);
+      requestHome();
     });
     bar.append(chip, home);
     document.body.append(bar);

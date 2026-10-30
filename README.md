@@ -73,7 +73,7 @@ Open **`<arcade address>/admin/`** on any phone or laptop and enter the admin pa
 
 ## Staff controls
 
-Inside a game, the 🏠 button in the top-right corner must be **held** for about a second to return to the home screen. This prevents accidental exits. If a round is in progress, or a finished score hasn't been saved yet, the player is warned first that the score will be lost and can choose **Keep playing** or **Leave anyway**. Games also return home on their own after 3 idle minutes, without asking.
+Inside a game, **tap** the 🏠 button in the top-right corner to return to the home screen. If a round is in progress, or a finished score hasn't been saved yet, the player is warned first that the score will be lost and can choose **Keep playing** or **Leave anyway**, so a stray tap never loses a game. Games also return home on their own after 3 idle minutes, without asking.
 
 With a keyboard attached:
 
