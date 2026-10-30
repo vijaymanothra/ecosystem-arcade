@@ -315,6 +315,15 @@
     document.body.append(bar);
     document.body.classList.add('eap-has-bar'); // games keep top-right content clear of the badge
     updateChip();
+    // games can reserve exactly the badge's room: var(--eap-bar-w) / var(--eap-bar-h), kept current
+    const measure = () => {
+      const r = bar.getBoundingClientRect();
+      document.documentElement.style.setProperty('--eap-bar-w', `${Math.ceil(r.width + (innerWidth - r.right))}px`);
+      document.documentElement.style.setProperty('--eap-bar-h', `${Math.ceil(r.bottom)}px`);
+    };
+    measure();
+    if (window.ResizeObserver) new ResizeObserver(measure).observe(bar);
+    addEventListener('resize', measure);
 
     // idle → back to the launcher
     let last = Date.now();

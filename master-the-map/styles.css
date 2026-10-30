@@ -341,3 +341,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes drift { from { transform: translateY(10vh) rotate(0deg); } to { transform: translateY(-120vh) rotate(360deg); } }
 @keyframes lowPulse { 50% { opacity: .55; } }
+
+/* keep the in-game score bar clear of the player's 🏠 badge (its width is measured by passport.js) */
+.eap-has-bar #game .hud { padding-right: var(--eap-bar-w, 0px); }
+
+/* narrower screens (e.g. 1024 wide): the big title would run under the 🏠 badge */
+@media (max-width: 1300px) { .eap-has-bar #attract .brand { padding-inline: var(--eap-bar-w, 0px); } }

@@ -451,3 +451,6 @@ body.rush #arena::after {
 @keyframes blinkText { 50% { opacity: 0; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes lowPulse { 50% { opacity: .5; } }
+
+/* keep the level bar (and its timer) clear of the player's 🏠 badge (its width is measured by passport.js) */
+.eap-has-bar .topbar { padding-right: var(--eap-bar-w, 38px); }

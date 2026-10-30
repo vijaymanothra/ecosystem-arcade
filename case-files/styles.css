@@ -301,3 +301,6 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes flashOn { from { opacity: 1; } to { opacity: 0; } }
 @keyframes glow { from { background: rgba(214,40,40,.08); } to { background: rgba(214,40,40,.25); } }
 @keyframes blinkText { 50% { opacity: 0; } }
+
+/* keep the case number and title clear of the player's 🏠 badge (its width is measured by passport.js) */
+.eap-has-bar .file-head { padding-right: var(--eap-bar-w, 0px); }

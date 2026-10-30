@@ -404,3 +404,12 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes rise2 { from { transform: translateY(40vmin); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes blinkText { 50% { opacity: 0; } }
+
+/* the small decorative title sits where the player's 🏠 badge is; the big title already names the game */
+.eap-has-bar .mini-title { visibility: hidden; }
+
+/* narrower screens (e.g. 1024 wide): keep the title and the round counter clear of the 🏠 badge */
+@media (max-width: 1300px) and (min-height: 501px) {
+  .eap-has-bar #lobby .brand { padding-inline: var(--eap-bar-w, 0px); }
+  .eap-has-bar .side-head { padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
+}
