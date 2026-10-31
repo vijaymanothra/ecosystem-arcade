@@ -463,7 +463,21 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   #lb { flex: none; }
 }
 
-/* small phones held sideways: long space names on the board wrap onto two lines instead of running past the board's edge */
+
+/* phones held sideways: the lobby scrolls instead of squeezing, so START JOURNEY sits below the player
+   tokens (squeezed, it overlapped them and a tap meant for a token could start a 1-player game) */
 @media (max-height: 500px) and (orientation: landscape) {
-  .node .nl { white-space: normal; width: max-content; max-width: 15cqw; text-align: center; line-height: 1.1; }
+  #lobby { display: flex; flex-direction: column; align-items: center; overflow-y: auto; gap: 8px; padding-top: 8px; padding-bottom: 12px; }
+  #lobby > * { flex-shrink: 0; }
+  .kicker { font-size: 10px; letter-spacing: .2em; }
+  .brand h1 { font-size: 34px; margin-top: 2px; }
+  .brand p { font-size: 13px; margin-top: 2px; }
+  .lobby-body { flex: none; gap: 10px; }
+  .seats-wrap { padding: 10px; gap: 8px; }
+  .seats { flex: none; gap: 8px; }
+  .seat { padding: 6px 2px; gap: 2px; }
+  .seat .st { font-size: 34px; }
+  .seat .sn { font-size: 14px; }
+  .seat .ss { font-size: 10.5px; }
+  .lb-panel { padding: 10px 12px; }
 }

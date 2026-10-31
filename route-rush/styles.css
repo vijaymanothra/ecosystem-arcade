@@ -438,8 +438,8 @@ body.rush #arena::after {
   /* results: the title and final score start below the small 🏠 badge */
   .eap-has-bar #soloOver, .eap-has-bar #duelOver { padding-top: 46px; }
 }
-/* a duel on one upright phone: two compact lanes, so both players' businesses fit on the screen */
-@media (max-width: 640px) and (orientation: portrait) {
+/* a duel on one upright phone or tablet: two compact lanes, so both players' businesses fit on the screen */
+@media (max-width: 900px) and (orientation: portrait) {
   #arena.duel { gap: 6px; }
   #arena.duel .lane { padding: 6px; gap: 5px; min-height: 0; }
   #arena.duel .pname { font-size: 15px; }

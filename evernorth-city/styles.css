@@ -433,3 +433,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .bp .bp-role { font-size: 11px; }
   #stage.playing #city { top: 13vmin; height: calc(100% - 13vmin - 22vmin); }
 }
+
+/* narrow phones: the start-screen heading keeps clear of the small 🏠 badge */
+@media (max-width: 400px) {
+  .eap-has-bar #attract .brand { padding-inline: 40px; }
+  .eap-has-bar #attract .kicker { font-size: 10px; letter-spacing: .12em; padding-inline: 10px; }
+}
