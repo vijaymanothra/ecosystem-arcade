@@ -32,7 +32,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .bg span { position: absolute; bottom: -15vmin; opacity: .1; animation: driftUp linear infinite; filter: grayscale(.3); }
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 /* ---------- brand ---------- */
 .brand { text-align: center; }
@@ -112,7 +112,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 
 /* Today's Champions: one game's podium at a time (launcher.js sets --c1 to that game's color) */
 .champs { --c1: #7b4dff; display: flex; flex-direction: column; }
-.champs-head { display: flex; align-items: center; justify-content: space-between; gap: 1vmin; margin-bottom: .6vmin; }
+.champs-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6vmin 1vmin; margin-bottom: .6vmin; } /* the game icons drop under the heading when the panel is narrow */
 .champs-head h2 { margin-bottom: 0; white-space: nowrap; }
 .champ-dots { display: flex; gap: .6vmin; flex-shrink: 0; }
 .champ-dots button { width: clamp(26px, 3.8vmin, 46px); height: clamp(26px, 3.8vmin, 46px); padding: 0; border-radius: 50%; display: grid; place-items: center;
@@ -130,7 +130,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #champs .medal { width: 1.6em; text-align: center; }
 #champs .who { flex: 1; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #champs .sc { color: var(--accent); min-width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
-#champs .none { flex: 1; color: var(--muted); font-weight: 600; font-style: italic; }
+#champs .none { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-weight: 600; font-style: italic; }
 .champ-game.swap, #champs.swap { animation: champIn .45s ease both; }
 #champs.swap li { animation: champIn .45s ease both; }
 #champs.swap li:nth-child(2) { animation-delay: .08s; }
@@ -166,9 +166,13 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .key.ok:disabled { opacity: .35; }
 .sheet-actions { display: flex; gap: 2vmin; }
 
+/* upright screens (a portrait kiosk, a tablet held upright): tiles keep their natural height, three to a
+   row, so each one shows its art and PLAY button; the page scrolls if it still doesn't fit */
 @media (orientation: portrait) {
-  .tiles { grid-template-columns: repeat(2, 1fr); overflow-y: auto; }
-  .bottom { grid-template-columns: 1fr; }
+  html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+  .tiles { grid-template-columns: repeat(3, 1fr); flex: none; overflow: visible; }
+  .bottom { grid-template-columns: 1fr 1fr; }
+  .bottom > .passport { grid-column: 1 / -1; }
 }
 
 /* ---------- phones: one page that scrolls, games as full-width rows ----------

@@ -122,32 +122,32 @@
     s.id = 'eap-style';
     s.textContent = `
       .eap-bar{position:fixed;top:8px;right:8px;z-index:9990;display:flex;align-items:center;gap:6px;padding:4px 4px 4px 12px;border-radius:999px;
-        background:rgba(10,10,30,.62);backdrop-filter:blur(6px);color:#fff;font:700 clamp(12px,1.6vmin,18px) "Segoe UI",system-ui,sans-serif;
+        background:rgba(10,10,30,.62);backdrop-filter:blur(6px);color:#fff;font:700 clamp(12px,1.6vmin,40px) "Segoe UI",system-ui,sans-serif;
         box-shadow:0 4px 14px rgba(0,0,0,.35);user-select:none;-webkit-user-select:none;opacity:.88}
       .eap-chip{white-space:nowrap}
-      .eap-home{position:relative;width:clamp(34px,4.6vmin,52px);height:clamp(34px,4.6vmin,52px);border-radius:50%;border:0;cursor:pointer;
-        background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,26px);display:grid;place-items:center;touch-action:manipulation;transition:transform .1s}
+      .eap-home{position:relative;width:clamp(34px,4.6vmin,120px);height:clamp(34px,4.6vmin,120px);border-radius:50%;border:0;cursor:pointer;
+        background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,60px);display:grid;place-items:center;touch-action:manipulation;transition:transform .1s}
       .eap-home:active{transform:scale(.9)}
       .eap-saved{flex-basis:100%;width:100%;margin:0 0 .6vmin;text-align:center;font:800 clamp(14px,2.4vmin,30px) "Segoe UI",system-ui,sans-serif;color:#2ee59d;text-shadow:0 2px 6px rgba(0,0,0,.45)}
       .eap-stamp{position:fixed;left:50%;top:10vh;z-index:9999;transform:translateX(-50%);pointer-events:none;text-align:center;
         background:#fff8e6;color:#2b2118;border:8px double #d62828;border-radius:18px;padding:2.2vmin 4vmin;font-family:"Segoe UI",system-ui,sans-serif;
         box-shadow:0 18px 50px rgba(0,0,0,.5);animation:eapSlam .6s cubic-bezier(.3,1.6,.5,1) both}
-      .eap-stamp .t{font:900 clamp(20px,4.4vmin,56px) Impact,"Arial Black",sans-serif;letter-spacing:.06em;color:#d62828}
-      .eap-stamp .g{font-weight:900;font-size:clamp(16px,3vmin,38px)}
-      .eap-stamp .c{font-weight:700;font-size:clamp(13px,2.2vmin,28px);color:#6b5a3e;margin-top:.4vmin}
-      .eap-stamp .row{display:flex;gap:.8vmin;justify-content:center;margin-top:1vmin;font-size:clamp(20px,4vmin,48px)}
+      .eap-stamp .t{font:900 clamp(20px,4.4vmin,120px) Impact,"Arial Black",sans-serif;letter-spacing:.06em;color:#d62828}
+      .eap-stamp .g{font-weight:900;font-size:clamp(16px,3vmin,84px)}
+      .eap-stamp .c{font-weight:700;font-size:clamp(13px,2.2vmin,62px);color:#6b5a3e;margin-top:.4vmin}
+      .eap-stamp .row{display:flex;gap:.8vmin;justify-content:center;margin-top:1vmin;font-size:clamp(20px,4vmin,110px)}
       .eap-stamp .row span{filter:grayscale(1) opacity(.25)} .eap-stamp .row span.on{filter:none}
-      .eap-stamp .x{margin-top:1vmin;font:900 clamp(16px,3vmin,40px) Impact,"Arial Black",sans-serif;color:#12935a;letter-spacing:.05em}
+      .eap-stamp .x{margin-top:1vmin;font:900 clamp(16px,3vmin,90px) Impact,"Arial Black",sans-serif;color:#12935a;letter-spacing:.05em}
       .eap-stamp.out{animation:eapOut .4s ease-in forwards}
-      .eap-leave{position:fixed;inset:0;z-index:9995;display:grid;place-items:center;background:rgba(5,5,20,.72);backdrop-filter:blur(4px);
+      .eap-leave{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:rgba(5,5,20,.72);backdrop-filter:blur(4px);
         font-family:"Segoe UI",system-ui,sans-serif;animation:eapFade .2s ease both}
-      .eap-leave .box{width:min(92vw,560px);background:#16123a;color:#fff;border:2px solid rgba(255,255,255,.16);border-radius:22px;padding:28px 28px 24px;
+      .eap-leave .box{width:min(92vw,max(560px,52vmin));background:#16123a;color:#fff;border:2px solid rgba(255,255,255,.16);border-radius:max(22px,2vmin);padding:max(28px,2.6vmin) max(28px,2.6vmin) max(24px,2.2vmin);
         text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.55);animation:eapPop .3s cubic-bezier(.3,1.5,.5,1) both}
-      .eap-leave .ic{font-size:clamp(40px,7vmin,64px);line-height:1}
-      .eap-leave h2{margin:10px 0 8px;font:900 clamp(22px,3.8vmin,36px) "Segoe UI",system-ui,sans-serif;color:#ffd23f}
-      .eap-leave p{margin:0 0 22px;font-size:clamp(15px,2.3vmin,21px);line-height:1.4;color:#d9d4ff}
+      .eap-leave .ic{font-size:clamp(40px,7vmin,max(64px,5.9vmin));line-height:1}
+      .eap-leave h2{margin:10px 0 8px;font:900 clamp(22px,3.8vmin,max(36px,3.3vmin)) "Segoe UI",system-ui,sans-serif;color:#ffd23f}
+      .eap-leave p{margin:0 0 max(22px,2vmin);font-size:clamp(15px,2.3vmin,max(21px,1.95vmin));line-height:1.4;color:#d9d4ff}
       .eap-leave .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-      .eap-leave button{min-height:52px;padding:12px 26px;border-radius:999px;font:800 clamp(15px,2.3vmin,21px) "Segoe UI",system-ui,sans-serif;cursor:pointer}
+      .eap-leave button{min-height:max(52px,4.8vmin);padding:max(12px,1.1vmin) max(26px,2.4vmin);border-radius:999px;font:800 clamp(15px,2.3vmin,max(21px,1.95vmin)) "Segoe UI",system-ui,sans-serif;cursor:pointer}
       .eap-leave .stay{border:0;background:#ffd23f;color:#1a1240;box-shadow:0 5px 0 #b38a00}
       .eap-leave .go{border:2px solid rgba(255,255,255,.35);background:transparent;color:#fff}
       @keyframes eapFade{from{opacity:0}}
@@ -368,7 +368,7 @@
     const back = document.createElement('button');
     back.type = 'button';
     back.textContent = '🏠 Back to the Arcade';
-    back.addEventListener('click', goHome);
+    back.addEventListener('click', requestHome); // mid-game, this asks first, like the 🏠 button
     box.append(ph, h, p, back);
     document.body.append(box);
   }

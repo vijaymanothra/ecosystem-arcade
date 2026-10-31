@@ -38,7 +38,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
 #flash { position: fixed; inset: 0; pointer-events: none; z-index: 70; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(255,40,80,.75) 100%); }
 #flash.on { animation: flashOn .7s ease-out; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; /* a message never blocks a tap */ background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 .cta {
   font-size: clamp(22px, 4.4vmin, 58px); font-weight: 900; letter-spacing: .05em;
@@ -275,21 +275,6 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
    panel scrolls so BUILD AGAIN is always reachable (auto margins keep it centred when it fits) */
 #results { overflow-y: auto; justify-content: flex-start; }
 #results .res-card { margin-block: auto; flex-shrink: 0; }
-/* landscape screens up to the 1080p kiosk: a perfect city earns a third badge, so the card is kept a little tighter */
-@media (orientation: landscape) and (max-height: 1100px) {
-  #results .res-card { gap: 1.2vmin; padding: 2.6vmin 3.4vmin; }
-  .res-icon { font-size: 10vmin; }
-  .res-stats { flex-wrap: nowrap; gap: 1vmin; } /* all four stats on one row */
-  .res-stats div { padding: 1vmin 1.6vmin; }
-  .res-stats span { font-size: clamp(10px, 1.5vmin, 18px); }
-}
-@media (orientation: landscape) and (max-height: 820px) {
-  #results .res-card { gap: .9vmin; padding: 2vmin 3vmin; }
-  .res-icon { font-size: 7vmin; }
-  .res-card h1 { font-size: clamp(30px, 7vmin, 140px); }
-  .res-pop b { font-size: clamp(30px, 7vmin, 110px); }
-  .res-stats div { padding: .8vmin 2.2vmin; }
-}
 .res-card, .entry-card {
   width: min(100%, 120vmin); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.6vmin;
   background: rgba(10,10,40,.8); border: 2px solid rgba(255,210,63,.45); border-radius: 3vmin; padding: 3vmin 4vmin;
@@ -319,6 +304,26 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .res-card:has(.res-missing:not([hidden])) .res-icon { display: none; }
 .res-missing-list:has(> :nth-child(4)) small { display: none; }
 .res-missing-list:has(> :nth-child(4)) .res-missing-chip > span { grid-row: auto; font-size: clamp(16px, 2.4vmin, 28px); }
+/* landscape screens up to the 1080p kiosk: a perfect city earns a third badge, so the card is kept a little tighter */
+@media (orientation: landscape) and (max-height: 1100px) {
+  #results .res-card { gap: 1.2vmin; padding: 2.6vmin 3.4vmin; }
+  .res-icon { font-size: 10vmin; }
+  .res-stats { flex-wrap: nowrap; gap: 1vmin; } /* all four stats on one row */
+  .res-stats div { padding: 1vmin 1.6vmin; }
+  .res-stats span { font-size: clamp(10px, 1.5vmin, 18px); }
+}
+@media (orientation: landscape) and (max-height: 820px) {
+  #results .res-card { gap: .9vmin; padding: 2vmin 3vmin; }
+  .res-icon { font-size: 7vmin; }
+  .res-card h1 { font-size: clamp(30px, 7vmin, 140px); }
+  .res-pop b { font-size: clamp(30px, 7vmin, 110px); }
+  .res-stats div { padding: .8vmin 2.2vmin; }
+}
+/* tablets and small laptops held sideways: a wider card (so the four stats fit on one row), starting below the 🏠 badge */
+@media (orientation: landscape) and (min-width: 641px) and (max-width: 1300px) {
+  #results .res-card { width: min(100%, 50vw, 820px); }
+  .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1vmin); }
+}
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vmin; }
 .badge { padding: .9vmin 2.6vmin; border-radius: 999px; font-weight: 800; font-size: clamp(13px, 2.5vmin, 30px); background: linear-gradient(180deg, #7b4dff, #4b23c9); box-shadow: 0 .6vmin 0 #2b1180; animation: pop .5s backwards; }
 .actions { display: flex; justify-content: center; align-items: center; gap: 2.4vmin; flex-wrap: wrap; margin-top: 1vmin; }
@@ -411,3 +416,20 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes flashOn { from { opacity: 1; } to { opacity: 0; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes blinkText { 50% { opacity: 0; } }
+
+/* very wide kiosk screens (4K): the results card starts below the player's 🏠 badge */
+@media (min-width: 2400px) {
+  .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1vmin); }
+}
+
+/* small phones held sideways (under 640px wide): the upright-phone layout is too tall here, so the blueprints
+   sit side by side as on bigger sideways phones, the city keeps its normal place, and the stats bar drops the title */
+@media (max-width: 640px) and (orientation: landscape) {
+  .hud-title { display: none; }
+  .hand { flex-direction: row; align-items: stretch; }
+  .bp { width: auto; flex: 1 1 0; min-width: 0; padding: 8px 10px; }
+  .bp .bp-kind { position: static; align-self: flex-start; }
+  .bp .bp-top { padding-right: 0; }
+  .bp .bp-role { font-size: 11px; }
+  #stage.playing #city { top: 13vmin; height: calc(100% - 13vmin - 22vmin); }
+}

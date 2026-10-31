@@ -45,7 +45,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
 #flash { position: fixed; inset: 0; pointer-events: none; z-index: 70; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(214,40,40,.7) 100%); }
 #flash.on { animation: flashOn .6s ease-out; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; /* a message never blocks a tap */ background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 .cta {
   font-family: var(--stencil); font-weight: 400; letter-spacing: .08em;
@@ -285,6 +285,19 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .link .lf { font-size: 10px; }
   .arrow { font-size: 14px; padding: 0 2px; }
   .closed-stamp { font-size: 18px; bottom: 10px; right: 12px; }
+  /* choosing a case: three smaller folders side by side; the desk scrolls as a last resort */
+  #desk { overflow-y: auto; justify-content: flex-start; gap: 14px; padding-top: 10px; }
+  #desk > * { flex-shrink: 0; }
+  .desk-title { font-size: 26px; margin-top: auto; }
+  .folders { flex-wrap: nowrap; gap: 12px; width: 100%; margin-bottom: auto; padding-top: 14px; }
+  .folder { width: auto; flex: 1 1 0; min-width: 0; aspect-ratio: auto; min-height: 150px; padding: 26px 10px 10px; gap: 3px; border-radius: 0 8px 8px 8px; }
+  .folder::before { top: -13px; height: 14px; border-radius: 6px 6px 0 0; }
+  .folder .fcode { font-size: 10px; letter-spacing: .1em; }
+  .folder .ficon { font-size: 30px; right: 8px; top: 8px; }
+  .folder .fstamp { font-size: 10px; top: 34px; left: 10px; }
+  .folder .ftitle { font-size: 18px; }
+  .folder .fpatient { font-size: 11px; }
+  .folder .fsteps { font-size: 10px; }
 }
 
 @media (orientation: portrait) {
@@ -317,3 +330,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 
 /* keep the case number and title clear of the player's 🏠 badge (its width is measured by passport.js) */
 .eap-has-bar .file-head { padding-right: var(--eap-bar-w, 0px); }
+
+/* tablets and small laptops: the board is narrower, so the drag hint may wrap instead of running past its edge */
+@media (min-width: 641px) and (max-width: 1300px) {
+  .drag-hint { left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 24px); transform: none; white-space: normal; text-align: center; }
+}
