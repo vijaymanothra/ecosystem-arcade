@@ -56,7 +56,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #toast {
   position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 60;
   background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700;
+  pointer-events: none; /* never blocks a tap on what's underneath (e.g. the play button) */
 }
+/* the "tap PLAY" hint sits just above the play button rather than over it */
+#toast.above-cta { bottom: auto; top: var(--hint-top, 50%); }
 
 /* ---------- buttons ---------- */
 .cta {
@@ -75,6 +78,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   padding: 1.2vmin 4vmin; border-radius: 999px; border: 2px solid rgba(255,255,255,.2);
 }
 .pulse { animation: pulse 1.2s ease-in-out infinite; }
+.cta.nudge { animation: nudge .6s ease-in-out 2; } /* "this is the button" after tapping a business card */
 
 /* ---------- business map tiles ---------- */
 .map { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.5vmin; }
@@ -96,7 +100,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #attractMap .tile { animation: shimmer 5s ease-in-out infinite; }
 
 /* ---------- attract ---------- */
-#attract { align-items: center; justify-content: space-between; text-align: center; cursor: pointer; }
+#attract { align-items: center; justify-content: space-between; text-align: center; }
+#attract .cta { cursor: pointer; }
 .brand h1 {
   font-size: clamp(44px, 10vmin, 150px);
   font-weight: 900;
@@ -245,6 +250,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #overTitle.win { color: var(--good); text-shadow: 0 0 4vmin rgba(46,229,157,.6); }
 #overSub { font-size: clamp(16px, 3.2vmin, 40px); color: #e8e4ff; font-weight: 700; margin-top: 1vmin; }
 .final { text-align: right; }
+/* the score sits top-right, where the player's 🏠 badge is: keep it just below the badge */
+@media (min-width: 641px) { .eap-has-bar .over-top .final { padding-top: clamp(44px, 6.4vmin, 72px); } }
 #finalScore { font-size: clamp(48px, 11vmin, 150px); font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 #bonusLine { min-height: 1.3em; font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; color: var(--good); }
 #resultMap { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
@@ -313,6 +320,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .board, #lb { flex: none; }
   #lb li { font-size: 15px; }
   #lb li.empty { flex: none; padding: 10px 0; }
+  /* a small phone held sideways is also under 640px wide: stack the start-screen panels at full width */
+  .attract-body { flex-direction: column; width: 100%; }
+  .attract-body > * { width: 100%; min-width: 0; }
+  /* results: the title and final score start below the small 🏠 badge */
+  .eap-has-bar #over { padding-top: 46px; }
 }
 
 /* ---------- keyframes ---------- */
@@ -320,6 +332,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes bounce { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes nudge { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.14); } 60% { transform: scale(.97); } }
 @keyframes shimmer { 0%, 88%, 100% { transform: none; filter: none; } 93% { transform: scale(1.07); filter: brightness(1.3); } }
 @keyframes deal { from { transform: translateY(4vmin) scale(.95); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes slideIn { from { transform: translateY(-3vmin); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -333,3 +346,25 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes drift { from { transform: translateY(10vh) rotate(0deg); } to { transform: translateY(-120vh) rotate(360deg); } }
 @keyframes lowPulse { 50% { opacity: .55; } }
+
+/* keep the in-game score bar clear of the player's 🏠 badge (its width is measured by passport.js) */
+.eap-has-bar #game .hud { padding-right: var(--eap-bar-w, 0px); }
+
+/* narrower screens (e.g. 1024 wide): the big title would run under the 🏠 badge */
+@media (max-width: 1300px) { .eap-has-bar #attract .brand { padding-inline: var(--eap-bar-w, 0px); } }
+
+/* upright kiosks and tablets: the results title starts below the player's 🏠 badge */
+@media (orientation: portrait) and (min-width: 641px) {
+  .eap-has-bar #over { padding-top: calc(var(--eap-bar-h, 0px) + 1.5vmin); }
+}
+
+/* phones held sideways: a compact question screen, so all four answers fit above the bottom edge */
+@media (max-height: 500px) and (orientation: landscape) {
+  #game { gap: 6px; padding-top: 8px; padding-bottom: 10px; }
+  .question-card { padding: 8px 16px; border-radius: 12px; }
+  #question { font-size: 19px; }
+  #question.long { font-size: 16px; }
+  .answers { gap: 6px; flex: 1.3; }
+  .ans { font-size: 15px; padding: 6px 10px; gap: 8px; border-radius: 10px; }
+  .ans.long { font-size: 13px; }
+}

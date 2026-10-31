@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
 #flash { position: fixed; inset: 0; pointer-events: none; z-index: 70; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(255,40,80,.75) 100%); }
 #flash.on { animation: flashOn .6s ease-out; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; /* a message never blocks a tap */ background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 .cta {
   font-size: clamp(22px, 4.4vmin, 58px); font-weight: 900; letter-spacing: .05em;
@@ -346,6 +346,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .pod.r2 .block { height: 17vmin; }
 .pod.r3 .block { height: 12vmin; }
 .pod.r4 .block { height: 8vmin; }
+/* short screens: the podium blocks give up height first, so the winner's token never rides up into the title */
+.pod { max-height: 100%; }
+.pod .block { min-height: 3vmin; }
 .actions { display: flex; justify-content: center; align-items: center; gap: 3vmin; flex-wrap: wrap; }
 
 /* ================================================================ NAME ENTRY */
@@ -365,6 +368,21 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* phones: the small 🏠 sits in that corner (kiosk, laptop and desktop screens never match) */
 @media (max-width: 640px), (max-height: 500px) {
   .mini-title { visibility: hidden; }
+  .eap-has-bar #lobby .brand { padding-inline: 44px; } /* the lobby title stays clear of the small 🏠 badge */
+}
+/* phone held sideways: a compact podium so the winners, the "Saved" note and the buttons all fit */
+@media (max-height: 500px) and (orientation: landscape) {
+  #results { gap: 4px; padding: 8px 16px; }
+  .res-head h1 { font-size: 30px; }
+  .res-head p { font-size: 13px; margin-top: 2px; }
+  .pod { gap: 2px; }
+  .pod .ptok { font-size: 28px; }
+  .pod.r1 .ptok { font-size: 36px; }
+  .pod .crown { font-size: 18px; margin-bottom: -4px; }
+  .pod .pname { font-size: 14px; }
+  .pod .ptotal { font-size: 24px; }
+  .pod .pbreak { font-size: 10px; line-height: 1.3; }
+  .pod .pstamps { font-size: 11px; }
 }
 
 @media (orientation: portrait) {
@@ -404,3 +422,62 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes rise2 { from { transform: translateY(40vmin); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes blinkText { 50% { opacity: 0; } }
+
+/* the small decorative title sits where the player's 🏠 badge is; the big title already names the game */
+.eap-has-bar .mini-title { visibility: hidden; }
+
+/* narrower screens (e.g. 1024 wide): keep the title and the round counter clear of the 🏠 badge */
+@media (max-width: 1300px) and (min-height: 501px) {
+  .eap-has-bar #lobby .brand { padding-inline: var(--eap-bar-w, 0px); }
+  .eap-has-bar .side-head { padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
+}
+
+/* upright kiosks, tablets and small laptops: the results title starts below the player's 🏠 badge */
+@media (min-width: 641px) and (max-width: 1300px), (orientation: portrait) and (min-width: 641px) {
+  .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1.5vmin); }
+}
+
+/* very wide kiosk screens (4K): the side panel doesn't grow as fast as the badge, so start it below the badge */
+@media (min-width: 2400px) {
+  .eap-has-bar .side-head { padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
+}
+
+/* upright tablets and kiosks: all players' cards in one compact row, with the ROLL box right below
+   (two tall rows of cards pushed ROLL off the bottom with 3–4 players); the side panel scrolls as a last resort */
+@media (orientation: portrait) and (min-width: 641px) {
+  .side { overflow-y: auto; align-content: flex-start; }
+  .player-cards { flex: 1 1 100%; min-height: auto; flex-wrap: nowrap; }
+  .pcard { flex: 1 1 0; min-width: 0; grid-template-columns: auto 1fr; gap: .4vmin 1vmin; padding: 1vmin; }
+  .pcard .pt { width: 5.5vmin; height: 5.5vmin; font-size: 3.4vmin; }
+  .pcard .pc, .pcard .pp { text-align: left; }
+  .pcard .ps { grid-column: 1 / -1; }
+  .turn-box { flex: 1 1 100%; }
+}
+
+/* upright tablets and kiosks: the lobby scrolls instead of squeezing, so Today's Top Travelers keeps its height */
+@media (orientation: portrait) and (min-width: 641px) {
+  #lobby { display: flex; flex-direction: column; align-items: center; overflow-y: auto; height: 100%; gap: 2vmin; }
+  #lobby > * { flex-shrink: 0; }
+  .lobby-body { flex: none; }
+  .lb-panel { flex: none; min-height: 30vh; }
+  #lb { flex: none; }
+}
+
+
+/* phones held sideways: the lobby scrolls instead of squeezing, so START JOURNEY sits below the player
+   tokens (squeezed, it overlapped them and a tap meant for a token could start a 1-player game) */
+@media (max-height: 500px) and (orientation: landscape) {
+  #lobby { display: flex; flex-direction: column; align-items: center; overflow-y: auto; gap: 8px; padding-top: 8px; padding-bottom: 12px; }
+  #lobby > * { flex-shrink: 0; }
+  .kicker { font-size: 10px; letter-spacing: .2em; }
+  .brand h1 { font-size: 34px; margin-top: 2px; }
+  .brand p { font-size: 13px; margin-top: 2px; }
+  .lobby-body { flex: none; gap: 10px; }
+  .seats-wrap { padding: 10px; gap: 8px; }
+  .seats { flex: none; gap: 8px; }
+  .seat { padding: 6px 2px; gap: 2px; }
+  .seat .st { font-size: 34px; }
+  .seat .sn { font-size: 14px; }
+  .seat .ss { font-size: 10.5px; }
+  .lb-panel { padding: 10px 12px; }
+}

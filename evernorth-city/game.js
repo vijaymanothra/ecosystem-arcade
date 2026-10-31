@@ -199,6 +199,8 @@
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? "🏆 Today's Top Mayors" : '🏆 Top Mayors';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No mayors yet — the city awaits you!')); return; }
     lb.forEach((e, i) => {
@@ -274,8 +276,7 @@
     const L = (name) => { const g = sv('g', null, name); svg.append(g); city.layers[name] = g; return g; };
     const ground = L('ground');
     const cars = L('cars');
-    const builds = L('builds');
-    L('labels');
+    const builds = L('builds'); // buildings and their name signs, back to front
     L('fxl');
 
     // floating island edges
@@ -302,19 +303,22 @@
     const slots = PLOTS.map((id, k) => ({ id, ox: 1 + 3 * (k % 4), oy: 1 + 3 * Math.floor(k / 4) }))
       .sort((a, b) => (a.ox + a.oy) - (b.ox + b.oy));
     city.slots = {};
+    // Each lot draws its building and then its name sign, back to front. A building on a lot in
+    // front therefore passes in front of the signs behind it, so a name never appears painted on
+    // someone else's building (signs used to sit on a layer above every building).
     for (const s of slots) {
       const lot = sv('polygon', { points: pts([P(s.ox, s.oy), P(s.ox + 2, s.oy), P(s.ox + 2, s.oy + 2), P(s.ox, s.oy + 2)]) }, 'lot');
       ground.append(lot);
       s.lotEl = lot;
+      s.wrap = sv('g', null, 'slot-wrap');
       s.group = sv('g', null, 'slot');
-      builds.append(s.group);
+      s.wrap.append(s.group);
+      builds.append(s.wrap);
       s.level = 0;
       city.slots[s.id] = s;
       if (s.id === 'park' || s.id === 'plaza') drawPark(s);
-      else if (BIZ[s.id]) drawEmptyLot(s);
+      else if (BIZ[s.id]) { drawEmptyLot(s); drawLabel(s); }
     }
-    // labels on top
-    for (const s of slots) if (BIZ[s.id]) drawLabel(s);
 
     // traffic
     const vehicles = ['🚗', '🚕', '🚙', '🚌', '🚑', '🚚', '🚗', '🚕'];
@@ -356,20 +360,28 @@
 
   function drawLabel(s) {
     const b = BIZ[s.id];
-    const [x, y] = P(s.ox + 2, s.oy + 2);
     const g = sv('g', null, 'lot-label');
     g.style.setProperty('--bc', b.color);
-    const text = sv('text', { x, y: y + 22, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+    const text = sv('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central' });
     text.textContent = b.short || b.name;
-    const rect = sv('rect', { rx: 13, ry: 13 });
+    const rect = sv('rect', { rx: 13, ry: 13, width: (b.short || b.name).length * 9.6 + 26, height: 26 });
     g.append(rect, text);
-    city.layers.labels.append(g);
-    const w = (b.short || b.name).length * 9.6 + 26;
-    rect.setAttribute('x', x - w / 2);
-    rect.setAttribute('y', y + 9);
-    rect.setAttribute('width', w);
-    rect.setAttribute('height', 26);
+    s.wrap.append(g); // after its own building, before the lots in front
     s.labelEl = g;
+    placeLabel(s);
+  }
+
+  // Empty lot: the sign sits in the middle of the lot, under its faded icon (the front corner is easily
+  // hidden by a building in front). Built: it sits on the building's own roof, the highest point of that
+  // building, so it stays visible and can't be read as a neighbour's name.
+  function placeLabel(s, roof) {
+    const [x, y] = roof ? P(roof.x, roof.y, roof.z) : P(s.ox + 1, s.oy + 1);
+    const cy = roof ? y + 4 : y + 38;
+    const [rect, text] = s.labelEl.children;
+    rect.setAttribute('x', x - rect.getAttribute('width') / 2);
+    rect.setAttribute('y', cy - 13);
+    text.setAttribute('x', x);
+    text.setAttribute('y', cy);
   }
 
   function prism(g, ox, oy, spec, color) {
@@ -434,7 +446,7 @@
     }
     s.group.append(g);
     s.level = level;
-    if (s.labelEl) s.labelEl.classList.add('built');
+    if (s.labelEl) { s.labelEl.classList.add('built'); placeLabel(s, top); }
     return g;
   }
 
@@ -443,7 +455,7 @@
       if (!BIZ[s.id]) continue;
       s.level = 0;
       drawEmptyLot(s);
-      if (s.labelEl) s.labelEl.classList.remove('built');
+      if (s.labelEl) { s.labelEl.classList.remove('built'); placeLabel(s); }
       s.lotEl.classList.remove('target');
     }
     city.layers.fxl.replaceChildren();
@@ -505,6 +517,9 @@
 
   // ================================================================ attract
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     clearInterval(G.autoTimer);
     clearTimeout(G.idleTimer);
@@ -610,19 +625,31 @@
   }
 
   // ---- blueprints
+  // Each day's three blueprints always give a real choice: at least one NEW business while any are
+  // still unbuilt (so all of them can be built in the game's days) and at least one UPGRADE once
+  // something is built. The third card is random as before, favouring new and low-level ones.
   function dealOptions() {
     const cands = CITY_BIZ.filter((b) => city.slots[b.id].level < 3 && QUESTIONS.some((q) => q.business === b.id));
     const weight = (b) => [3, 2, 1][city.slots[b.id].level] || 0;
-    const chosen = [];
-    const pool = cands.slice();
-    while (chosen.length < 3 && pool.length) {
-      const total = pool.reduce((t, b) => t + weight(b), 0);
+    const takeFrom = (list) => {
+      const total = list.reduce((t, b) => t + weight(b), 0);
       let r = Math.random() * total;
       let idx = 0;
-      for (; idx < pool.length; idx++) { r -= weight(pool[idx]); if (r <= 0) break; }
-      chosen.push(pool.splice(Math.min(idx, pool.length - 1), 1)[0]);
+      for (; idx < list.length; idx++) { r -= weight(list[idx]); if (r <= 0) break; }
+      return list.splice(Math.min(idx, list.length - 1), 1)[0];
+    };
+    const pool = cands.slice();
+    const chosen = [];
+    const fresh = pool.filter((b) => city.slots[b.id].level === 0);
+    const upgrades = pool.filter((b) => city.slots[b.id].level > 0);
+    for (const group of [fresh, upgrades]) {
+      if (!group.length) continue;
+      const b = takeFrom(group);
+      chosen.push(b);
+      pool.splice(pool.indexOf(b), 1);
     }
-    return chosen;
+    while (chosen.length < 3 && pool.length) chosen.push(takeFrom(pool));
+    return shuffle(chosen);
   }
 
   function chooseBlueprint() {
@@ -935,7 +962,25 @@
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.8 + i * 0.2}s`; bx.append(b); });
 
-    const qualifies = isHighScore(G.pop);
+    // every business is shown: the ones this city didn't build are listed with what they do
+    const missing = CITY_BIZ.filter((b) => city.slots[b.id].level === 0);
+    const ml = $('#resMissingList');
+    ml.replaceChildren();
+    for (const b of missing) {
+      const chip = el('span', 'res-missing-chip');
+      chip.style.setProperty('--bc', b.color);
+      chip.title = ROLES[b.id] || '';
+      chip.append(el('span', null, b.icon), el('b', null, b.short || b.name), el('small', null, ROLES[b.id] || ''));
+      ml.append(chip);
+    }
+    $('#resMissing').hidden = !missing.length;
+
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.pop, CITY_BIZ.filter((b) => city.slots[b.id].level > 0).length).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.pop);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('results');
@@ -1017,7 +1062,14 @@
 
   // ================================================================ wiring
   $('#startBtn').addEventListener('click', startGame);
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());

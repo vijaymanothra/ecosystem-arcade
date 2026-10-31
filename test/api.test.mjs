@@ -1,4 +1,4 @@
-﻿// The scores API contract, checked against the local server (server/server.js + SQLite),
+﻿// The scores API contract (test/contract.mjs) against the local server (server/server.js + SQLite),
 // plus the shared score rules (server/scores-core.js) on their own.
 // Run: npm test
 import { describe, test, before, after } from 'node:test';
@@ -9,92 +9,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { apiContract, ADMIN, today } from './contract.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
 const core = require('../server/scores-core.js');
-const ADMIN = 'test-admin-token-123456';
-const today = new Date().toISOString().slice(0, 10);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// ---------------------------------------------------------------- the checks both must pass
-function apiContract(name, start) {
-  describe(name, () => {
-    let base, stop;
-    before(async () => ({ base, stop } = await start()));
-    after(() => stop());
-
-    const post = (scores, headers = {}) => fetch(`${base}/api/scores`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ scores }) });
-    const S = (id, x = {}) => ({ id, game: 'route-rush', name: 'Ana', score: 100, day: today, at: Date.now(), ...x });
-    const list = async () => (await fetch(`${base}/api/scores?day=${today}&limit=10`)).json();
-
-    test('health answers', async () => {
-      const r = await fetch(`${base}/api/health`);
-      assert.equal(r.status, 200);
-      assert.deepEqual(await r.json(), { ok: true });
-    });
-
-    test('valid scores are accepted, and sending one again is harmless', async () => {
-      let j = await (await post([S('a1', { accuracy: 90 }), S('a2', { name: 'Bo', score: 300 }), S('a3', { name: 'Cy', score: 200, game: 'case-files', rank: 'Detective' })])).json();
-      assert.deepEqual(j.accepted.sort(), ['a1', 'a2', 'a3']);
-      assert.deepEqual(j.rejected, []);
-      j = await (await post([S('a1')])).json();
-      assert.deepEqual(j.accepted, ['a1']);
-    });
-
-    test('invalid scores are rejected', async () => {
-      const j = await (await post([
-        S('bad1', { game: 'pacman' }), S('bad2', { name: '   ' }), S('bad3', { score: 99999999 }), S('bad4', { score: -5 }),
-        S('bad5', { day: '2099-01-01' }), S('bad 6'), S('bad7', { score: 'lots' }),
-      ])).json();
-      assert.deepEqual(j.accepted, []);
-      assert.equal(j.rejected.length, 7);
-    });
-
-    test('lists are sorted, keep per-game details, trim names, include server time', async () => {
-      await post([S('long', { name: 'A'.repeat(50) + '\u0007', score: 50 })]);
-      const j = await list();
-      assert.equal(typeof j.now, 'number');
-      const rr = j.scores.filter((e) => e.game === 'route-rush');
-      assert.equal(rr[0].name, 'Bo');
-      assert.ok(rr.every((e, i) => i === 0 || rr[i - 1].score >= e.score));
-      assert.equal(j.scores.find((e) => e.id === 'a3').rank, 'Detective');
-      assert.equal(j.scores.find((e) => e.id === 'a1').accuracy, 90);
-      assert.equal(j.scores.find((e) => e.id === 'long').name, 'A'.repeat(20));
-    });
-
-    test('bad requests are refused', async () => {
-      let r = await fetch(`${base}/api/scores`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{nope' });
-      assert.equal(r.status, 400);
-      r = await post(Array(51).fill(S('x')));
-      assert.equal(r.status, 400);
-      r = await fetch(`${base}/api/scores`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'x'.repeat(70000) });
-      assert.equal(r.status, 413);
-    });
-
-    test('wiping needs the admin token and only touches the chosen game', async () => {
-      assert.equal((await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE' })).status, 401);
-      assert.equal((await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { Authorization: 'Bearer wrong' } })).status, 401);
-      const r = await fetch(`${base}/api/scores?game=route-rush`, { method: 'DELETE', headers: { Authorization: `Bearer ${ADMIN}` } });
-      assert.equal(r.status, 200);
-      assert.equal((await r.json()).deleted, 3);
-      const j = await list();
-      assert.deepEqual(j.scores.map((e) => e.game), ['case-files']);
-    });
-
-    test('CORS preflight works for kiosks opening local files', async () => {
-      const r = await fetch(`${base}/api/scores`, { method: 'OPTIONS', headers: { Origin: 'null', 'Access-Control-Request-Method': 'POST' } });
-      assert.equal(r.status, 204);
-      assert.equal(r.headers.get('access-control-allow-origin'), '*');
-    });
-
-    test('uploads are rate limited (60 a minute per address)', async () => {
-      let limited = false;
-      for (let i = 0; i < 70 && !limited; i++) if ((await post([])).status === 429) limited = true;
-      assert.ok(limited);
-    });
-  });
-}
 
 // ---------------------------------------------------------------- 1. local server
 apiContract('local server (SQLite)', async () => {
@@ -184,6 +104,97 @@ describe('score rules (scores-core.js)', () => {
     assert.match(core.parseDay('not a day'), /^\d{4}-\d{2}-\d{2}$/);
   });
 
+  test('names: letters (any language), spaces, hyphens and apostrophes only', () => {
+    for (const name of ['Ana', 'Anne-Marie', "O'Neil", 'Ana Lucía', 'राहुल', 'Zoë']) {
+      assert.ok(core.cleanScore({ ...ok, name }, now), name);
+    }
+    for (const name of ['Ana123', 'Ana😀', '<script>', 'a.b', '-Ana', 'Ana-', "'", 'x@y', '1337']) {
+      assert.equal(core.cleanScore({ ...ok, name }, now), null, name);
+    }
+  });
+
+  test('blocked words: refused even split up, but real names that contain short ones are fine', () => {
+    const { isBlocked, words } = core.loadNameFilter(join(ROOT, 'server'));
+    assert.ok(words.length > 40, 'the starter list is loaded');
+    for (const name of ['Kshitij', 'Cassandra', 'Analia', 'Sexton', 'Dickens', 'Ana', 'Grape', 'Shitanshu']) {
+      assert.ok(core.cleanScore({ ...ok, name }, now, isBlocked), `${name} should be allowed`);
+    }
+    for (const name of ['Fuck', 'Shit Head', 'Big Bitch', 'B i t c h', 'Chutiya', 'Mr Nazi']) {
+      assert.equal(core.cleanScore({ ...ok, name }, now, isBlocked), null, `${name} should be refused`);
+    }
+  });
+
+  test('per-game extras shown next to names (rank, token) get the same filter and a length cap', () => {
+    const { isBlocked } = core.loadNameFilter(join(ROOT, 'server'));
+    assert.equal(core.cleanScore({ ...ok, rank: 'Shit' }, now, isBlocked), null);
+    assert.equal(core.cleanScore({ ...ok, rank: 'Chief Detective' }, now, isBlocked).details.rank, 'Chief Detective');
+    assert.equal(core.cleanScore({ ...ok, token: '🦊'.repeat(30) }, now, isBlocked).details.token.length <= 20, true);
+  });
+
+  test('score limits are at or above what each game can really produce (recomputed from game settings)', () => {
+    const vm = require('node:vm');
+    const fs = require('node:fs');
+    const load = (...files) => { const ctx = { window: {} }; vm.createContext(ctx); for (const f of files) vm.runInContext(fs.readFileSync(join(ROOT, f), 'utf8'), ctx); return ctx.window; };
+    // Master the Map: one question per business (base 100 + speed ≤100) and journey steps (150 + ≤150),
+    // combo multiplier min(4, 1 + floor(streak / 3)), plus the mastery bonus  (values from master-the-map/game.js)
+    const mtm = load('master-the-map/questions.js');
+    const steps = mtm.QUIZ_BUSINESSES.length + mtm.QUIZ_JOURNEY.steps.length;
+    let mtmMax = mtm.QUIZ_CONFIG.masteryBonus;
+    for (let streak = 1; streak <= steps; streak++) mtmMax += (streak <= mtm.QUIZ_BUSINESSES.length ? 200 : 300) * Math.min(4, 1 + Math.floor(streak / 3));
+    assert.ok(core.GAMES['master-the-map'].maxScore >= mtmMax, `Master the Map can reach ${mtmMax}`);
+    // Evernorth City: every day builds the top level with the full speed bonus, every news event is a reward
+    const ec = load('evernorth-city/content.js').EC_CONFIG || load('evernorth-city/content.js').CITY_CONFIG;
+    if (ec) {
+      const ecMax = ec.turns * (Math.max(...ec.levelPop) + ec.speedBonusMax) + Math.floor(ec.turns / ec.newsEvery) * ec.newsReward;
+      assert.ok(core.GAMES['evernorth-city'].maxScore >= ecMax, `Evernorth City can reach ${ecMax}`);
+    }
+    // Case Files: the longest cases, every clue first try and fast, every case perfect
+    const cf = load('case-files/questions.js', 'case-files/content.js');
+    const cfg = cf.CF_CONFIG;
+    const longest = cf.CF_CASES.map((c) => c.steps.length).sort((a, b) => b - a).slice(0, cfg.casesPerGame);
+    const cfMax = longest.reduce((sum, n) => sum + n * (cfg.stepPoints[0] + cfg.speedBonus[0][1]) + cfg.perfectCaseBonus, 0);
+    assert.ok(core.GAMES['case-files'].maxScore >= cfMax, `Case Files can reach ${cfMax}`);
+  });
+
+  test('pages on other websites may not send or wipe scores; JSON only; 25 scores per upload', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', allowedOrigins: ['https://arcade.example'], log: { error() {} } });
+    const post = (headers, n = 1) => api({ method: 'POST', path: '/api/scores', query: {}, ip: '9.9.9.9',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ scores: Array.from({ length: n }, (_, i) => ({ ...ok, id: `o${i}` })) }) });
+    assert.equal((await post({ origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post({ origin: 'https://arcade.example' })).status, 200);
+    assert.equal((await post({})).status, 200, 'no Origin header (not a web page): allowed, rate-limited');
+    assert.equal((await post({ 'content-type': 'text/plain' })).status, 415);
+    assert.equal((await post({}, 25)).status, 200);
+    assert.equal((await post({}, 26)).status, 400);
+    const del = await api({ method: 'DELETE', path: '/api/scores', query: {}, ip: '9.9.9.9', headers: { origin: 'https://evil.example', 'x-admin-token': 'secret-token-1234567' } });
+    assert.equal(del.status, 403);
+  });
+
+  test('wrong admin passwords: after 5 that address is paused (15 minutes); others are not', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
+    const del = (token, ip) => api({ method: 'DELETE', path: '/api/scores', query: {}, ip, headers: { 'x-admin-token': token } });
+    for (let i = 0; i < 5; i++) assert.equal((await del('guess', '6.6.6.6')).status, 401);
+    assert.equal((await del('guess', '6.6.6.6')).status, 429);
+    assert.equal((await del('secret-token-1234567', '6.6.6.6')).status, 429, 'paused even with the right token');
+    assert.equal((await del('secret-token-1234567', '7.7.7.7')).status, 200, 'other addresses unaffected');
+  });
+
+  test('admin token: X-Admin-Token or Authorization: Bearer, must match exactly', async () => {
+    const { createApi } = require('../server/scores-api.js');
+    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
+    const del = (headers) => api({ method: 'DELETE', path: '/api/scores', query: {}, headers });
+    assert.equal((await del({ 'x-admin-token': 'secret-token-1234567' })).status, 200);
+    assert.equal((await del({ authorization: 'Bearer secret-token-1234567' })).status, 200);
+    assert.equal((await del({ 'x-admin-token': 'nope' })).status, 401);
+    assert.equal((await del({})).status, 401);
+  });
+
   test('admin token must match exactly', () => {
     assert.equal(core.tokenMatches('Bearer secret-token', 'secret-token'), true);
     assert.equal(core.tokenMatches('Bearer secret-tokeN', 'secret-token'), false);
@@ -197,4 +208,3 @@ describe('score rules (scores-core.js)', () => {
     assert.equal(limited('2.2.2.2'), false);
   });
 });
-

@@ -101,7 +101,7 @@
         el('div', 'tn', g.name),
         el('div', 'tt', t.tagline),
         chips,
-        el('div', 'best', top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
+        el('div', 'best', P.paused(g.id) ? '🔒 Leaderboard paused' : top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
         el('div', 'play', '▶ PLAY'),
       );
       tile.querySelector('.art').style.animationDelay = `${-i * 0.6}s`;
@@ -186,6 +186,13 @@
     head.replaceChildren(el('span', null, g.icon), el('span', null, g.name));
     const ol = $('#champs');
     ol.replaceChildren();
+    if (P.paused(g.id)) { // staff paused this leaderboard from the admin page
+      const li = el('li', 'p1');
+      li.append(el('span', 'medal', '🔒'), el('span', 'none', 'Leaderboard paused by staff'));
+      ol.append(li);
+      if (animate) for (const n of [head, ol, $('.champ-timer')]) { n.classList.remove('swap'); void n.offsetWidth; n.classList.add('swap'); }
+      return;
+    }
     const top = P.podium(g.id, 3);
     ['🥇', '🥈', '🥉'].forEach((medal, i) => {
       const e = top[i];
@@ -249,7 +256,6 @@
     pendingGame = gameId;
     typed = '';
     renderName();
-    $('#guestBtn').hidden = !gameId;
     $('#signin').hidden = false;
   }
   function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
@@ -339,7 +345,6 @@
     t._t = setTimeout(() => { t.hidden = true; }, 3000);
   }
 
-  $('#guestBtn').addEventListener('click', () => { const g = pendingGame; closeSignin(); if (g) go(g); });
   $('#cancelBtn').addEventListener('click', () => { sfx.tap(); closeSignin(); });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
@@ -354,4 +359,7 @@
   buildKeys();
   renderAll();
   showChamp(0);
+  // sent here from a game because nobody was signed in: ask for the name, then go on to that game
+  const sentFrom = P.takePendingGame();
+  if (sentFrom) { if (P.current()) go(sentFrom); else openSignin(sentFrom); }
 })();

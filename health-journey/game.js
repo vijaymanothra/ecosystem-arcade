@@ -168,6 +168,8 @@
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? `🏆 Today's Top Travelers` : '🏆 Top Travelers';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No journeys finished yet — be the first legend!')); return; }
     lb.forEach((e, i) => {
@@ -349,6 +351,9 @@
   }
 
   function goLobby(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     stopAutoRoll();
     clearTimeout(G.idleTimer);
@@ -919,8 +924,14 @@
       setTimeout(() => animateNumber(total, 0, p.total, 1200), 400 + k * 150);
     });
 
-    const qualifies = isHighScore(G.winner.total);
+    // one player: saved automatically under the signed-in name.
+    // 2–4 players: the winner may be someone else, so Save asks for the winner's name.
+    const autoName = soloName();
+    if (autoName) G.savedId = addScore(autoName, G.winner.total, G.winner.stamps.size, G.winner.def.token).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.winner.total);
     $('#saveBtn').hidden = !qualifies;
+    $('#saveBtn').textContent = G.players.length === 1 ? 'SAVE MY SCORE' : "SAVE WINNER'S SCORE";
     $('#againBtn').hidden = qualifies;
     show('results');
     Sound.fanfare();
@@ -966,8 +977,20 @@
     $('#nameBox').textContent = G.name;
     $('#keys .ok').disabled = !G.name;
   }
+  // The signed-in player's name, or '' when several people played (the winner may be someone else).
+  function soloName() {
+    return G.players.length === 1 ? ((window.Passport && window.Passport.currentName(NAME_MAX)) || '') : '';
+  }
+  // One player: Save stores the score under their signed-in name, one tap.
+  // Several players: ask for the winner's name, starting empty, so it isn't saved under the wrong person.
+  function saveTapped() {
+    const name = soloName();
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  }
   function goEntry() {
-    G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
+    G.name = soloName();
     renderName();
     $('#entryWho').textContent = `${G.winner.def.token} ${G.winner.def.name}`;
     $('#entryTop').textContent = CFG.leaderboardSize;
@@ -1001,7 +1024,7 @@
   // ================================================================ wiring
   $('#startBtn').addEventListener('click', () => { if (G.joined.size) startGame(); });
   $('#rollBtn').addEventListener('click', () => { Sound.unlock(); doTurn(); });
-  $('#saveBtn').addEventListener('click', goEntry);
+  $('#saveBtn').addEventListener('click', saveTapped);
   $('#againBtn').addEventListener('click', () => startGame(G.players.map((p) => p.seat)));
   $('#homeBtn').addEventListener('click', () => goLobby());
   $('#skipBtn').addEventListener('click', () => goLobby());

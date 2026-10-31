@@ -181,6 +181,8 @@
       ? `🏆 Today's Top ${CFG.leaderboardSize}` : `🏆 Top ${CFG.leaderboardSize}`;
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) {
       ol.append(el('li', 'empty', 'No dispatchers yet — set the first record!'));
@@ -595,6 +597,9 @@
   }
 
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     teardown();
     resetReady();
     renderLeaderboard(highlightId);
@@ -839,7 +844,12 @@
     renderBlindSpot($('#blind'), l, s.blind);
     renderSoloBadges(l, s, completed);
 
-    const qualifies = isHighScore(G.finalScore);
+    // every finished solo score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.finalScore, G.finalAcc).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.finalScore);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
 
@@ -1102,7 +1112,14 @@
   $('#soloBtn').addEventListener('click', () => startGame('solo'));
   $('#duelBtn').addEventListener('click', goReady);
   $('#readyBack').addEventListener('click', () => goAttract());
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', () => startGame('solo'));
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#rematchBtn').addEventListener('click', () => startGame('duel'));

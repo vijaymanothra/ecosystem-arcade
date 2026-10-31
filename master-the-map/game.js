@@ -178,6 +178,8 @@
       ? `🏆 Today's Top ${CFG.leaderboardSize}` : `🏆 Top ${CFG.leaderboardSize}`;
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) {
       ol.append(el('li', 'empty', 'No scores yet — be the first on the board!'));
@@ -267,6 +269,9 @@
   }
 
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && state.savedId) highlightId = state.savedId;
+    state.savedId = null;
     state.runId++;
     state.locked = true;
     cancelAnimationFrame(state.raf);
@@ -583,7 +588,12 @@
     $('#stSpeed').textContent = avg == null ? '–' : `${avg.toFixed(1)}s`;
     renderBadges(mastered, total, avg);
 
-    const qualifies = isHighScore(state.finalScore);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) state.savedId = addScore(autoName, state.finalScore, state.mastered.size, state.run.length).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(state.finalScore);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
 
@@ -693,10 +703,13 @@
     const d = document.documentElement;
     if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {});
   }
-  function toast(msg) {
+  // above = an element to show the message just above (so it doesn't cover it)
+  function toast(msg, above) {
     const t = $('#toast');
     t.textContent = msg;
+    t.classList.toggle('above-cta', Boolean(above));
     t.hidden = false;
+    if (above) t.style.setProperty('--hint-top', `${Math.max(8, above.getBoundingClientRect().top - t.offsetHeight - 12)}px`);
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.hidden = true; }, 2500);
   }
@@ -716,11 +729,30 @@
   }
 
   // ---------------------------------------------------------------- wiring
-  $('#attract').addEventListener('click', () => {
+  // Only the play button starts a game. The business cards aren't choices — every game asks about
+  // all of them — so tapping one (or anywhere else) explains that and points at the button.
+  $('#startBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
     if (performance.now() < attractArmedAt) return;
     startGame();
   });
-  $('#saveBtn').addEventListener('click', goEntry);
+  $('#attract').addEventListener('click', (e) => {
+    if (performance.now() < attractArmedAt) return;
+    if (!e.target.closest('#attractMap .tile')) return;
+    const btn = $('#startBtn');
+    toast(`Every game asks about all ${BUSINESSES.length} businesses. Tap PLAY to start!`, btn);
+    restartAnim(btn, 'nudge');
+    clearTimeout(btn._nudge);
+    btn._nudge = setTimeout(() => btn.classList.remove('nudge'), 1300); // back to the usual pulse
+  });
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    state.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());

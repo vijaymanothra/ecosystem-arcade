@@ -150,6 +150,8 @@
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? "🏆 Today's Top Detectives" : '🏆 Top Detectives';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No cases closed yet. The city needs you, detective.')); return; }
     lb.forEach((e, i) => {
@@ -223,6 +225,9 @@
 
   // ================================================================ attract + desk
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     G.canPlay = false;
     clearInterval(G.tick);
@@ -670,7 +675,12 @@
     const bx = $('#rpBadges');
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.6 + i * 0.2}s`; bx.append(b); });
-    const qualifies = isHighScore(G.score);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.score, G.rank).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.score);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('report');
@@ -757,7 +767,14 @@
   $('#brIntro').addEventListener('click', () => { G.skipType = true; });
   $('#sticky').addEventListener('click', () => { G.skipType = true; });
   $('#nextBtn').addEventListener('click', nextAfterClose);
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());

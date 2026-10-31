@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Arcade admin</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <header class="top">
+    <h1>🔒 Arcade admin</h1>
+    <p class="sub">Leaderboard scores only — the games themselves can't be changed from here.</p>
+  </header>
+
+  <!-- LOCKED -->
+  <section id="locked" class="card unlock">
+    <form id="unlockForm" autocomplete="off">
+      <label for="pw">Admin password</label>
+      <div class="row">
+        <input id="pw" type="password" autocomplete="current-password" required>
+        <button type="submit" class="btn primary">Unlock</button>
+      </div>
+      <p id="unlockMsg" class="msg" role="alert"></p>
+    </form>
+  </section>
+
+  <!-- UNLOCKED -->
+  <main id="unlocked" hidden>
+    <div class="toolbar">
+      <button id="refreshBtn" class="btn">⟳ Refresh</button>
+      <button id="hideAllBtn" class="btn">🙈 Hide all leaderboards</button>
+      <button id="showAllBtn" class="btn">👁 Show all leaderboards</button>
+      <button id="csvAllBtn" class="btn">⬇ Download all (CSV)</button>
+      <button id="wipeAllBtn" class="btn danger">🗑 Wipe all scores</button>
+      <button id="lockBtn" class="btn ghost">Lock</button>
+    </div>
+    <p id="status" class="msg" role="status"></p>
+    <div id="games"></div>
+  </main>
+
+  <!-- CONFIRM -->
+  <div id="confirm" class="overlay" hidden>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h2 id="confirmTitle"></h2>
+      <p id="confirmText"></p>
+      <label id="confirmTypeLabel" for="confirmType" hidden></label>
+      <input id="confirmType" type="text" autocomplete="off" hidden>
+      <div class="row end">
+        <button id="confirmNo" class="btn ghost" type="button">Cancel</button>
+        <button id="confirmYes" class="btn danger" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

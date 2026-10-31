@@ -49,7 +49,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 }
 #flash.on { animation: flashOn .6s ease-out; }
 #toast {
-  position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 60;
+  position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 60; pointer-events: none; /* a message never blocks a tap */
   background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700;
 }
 
@@ -310,6 +310,8 @@ body.rush #arena::after {
 #soTitle.lose { color: var(--bad); }
 #soSub { font-size: clamp(16px, 3vmin, 38px); color: #e8e4ff; font-weight: 700; margin-top: 1vmin; }
 .final { text-align: right; }
+/* the score sits top-right, where the player's 🏠 badge is: keep it just below the badge */
+@media (min-width: 641px) { .eap-has-bar .over-top .final { padding-top: clamp(44px, 6.4vmin, 72px); } }
 #soScore { font-size: clamp(48px, 11vmin, 150px); font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 #soBonus { min-height: 1.3em; font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; color: var(--good); }
 .over-mid { display: flex; gap: 3vmin; align-items: stretch; flex: 1; min-height: 0; }
@@ -400,6 +402,17 @@ body.rush #arena::after {
 /* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
 @media (max-width: 640px), (max-height: 500px) {
   .topbar { padding-right: 38px; } /* room for the small 🏠 in the corner */
+  /* level card: smaller tiles so the businesses and "Tap to start" fit; scrolls if a long list still doesn't */
+  .level-card { display: flex; overflow-y: auto; padding: 12px 16px; }
+  .lc-inner { margin: auto; gap: 8px; }
+  #lcTitle { font-size: 40px; }
+  #lcSub { font-size: 15px; }
+  .lc-tiles { gap: 8px; }
+  .lc-tile { width: 170px; padding: 8px; gap: 3px; border-radius: 12px; }
+  .lc-tile .i { font-size: 26px; }
+  .lc-tile .n { font-size: 15px; }
+  .lc-tile .r { font-size: 11.5px; }
+  .tap-hint { font-size: 15px; }
 }
 @media (max-width: 640px) {
   /* the start screen scrolls instead of squeezing, so both play buttons stay reachable */
@@ -413,6 +426,37 @@ body.rush #arena::after {
   #lb { flex: none; }
   #lb li { font-size: 15px; }
   #lb li.empty { flex: none; padding: 10px 0; }
+  /* the demo request always takes the same room, so SOLO and DUEL below it never jump while someone reaches for them */
+  .demo-text { min-height: 4.8em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
+  /* a small phone held sideways is also under 640px wide: stack the panels at full width there too */
+  .attract-body { flex-direction: column; width: 100%; }
+  .attract-body > .panel { width: 100%; min-width: 0; }
+  /* five businesses per row must fit a 320–360px screen: equal columns that may shrink, smaller names */
+  .hubs { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .hub { padding: 6px 2px; min-width: 0; }
+  .hub-icon { font-size: 22px; }
+  .hub-name { font-size: clamp(9px, 2.75vw, 14px); letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .hub.locked::after { font-size: 10px; top: 2px; right: 3px; }
+  /* results: the title and final score start below the small 🏠 badge */
+  .eap-has-bar #soloOver, .eap-has-bar #duelOver { padding-top: 46px; }
+}
+/* a duel on one upright phone or tablet: two compact lanes, so both players' businesses fit on the screen */
+@media (max-width: 900px) and (orientation: portrait) {
+  #arena.duel { gap: 6px; }
+  #arena.duel .lane { padding: 6px; gap: 5px; min-height: 0; }
+  #arena.duel .pname { font-size: 15px; }
+  #arena.duel .lane-score .label { display: none; }
+  #arena.duel .lane-score .score { font-size: 22px; }
+  #arena.duel .combo { font-size: 16px; }
+  #arena.duel .hub { min-height: 44px; padding: 3px 2px; gap: 1px; }
+  #arena.duel .hub-icon { font-size: 16px; }
+  #arena.duel .card { padding: 6px 10px; gap: 4px; }
+  #arena.duel .card-from { font-size: 11px; }
+  #arena.duel .card-text { font-size: 13px; }
+  /* duel results: the two players' columns one above the other */
+  #duelOver { overflow-y: auto; justify-content: flex-start; gap: 12px; }
+  .duel-cols { flex-direction: column; flex: none; }
+  .duel-col { align-self: stretch; padding: 12px; }
 }
 
 /* ---------- keyframes ---------- */
@@ -449,3 +493,11 @@ body.rush #arena::after {
 @keyframes blinkText { 50% { opacity: 0; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes lowPulse { 50% { opacity: .5; } }
+
+/* keep the level bar (and its timer) clear of the player's 🏠 badge (its width is measured by passport.js) */
+.eap-has-bar .topbar { padding-right: var(--eap-bar-w, 38px); }
+
+/* upright kiosks and tablets: the big titles start below the player's 🏠 badge */
+@media (orientation: portrait) and (min-width: 641px) {
+  .eap-has-bar #attract, .eap-has-bar #soloOver, .eap-has-bar #duelOver { padding-top: calc(var(--eap-bar-h, 0px) + 1.5vmin); }
+}
