@@ -426,6 +426,8 @@ body.rush #arena::after {
   #lb { flex: none; }
   #lb li { font-size: 15px; }
   #lb li.empty { flex: none; padding: 10px 0; }
+  /* the demo request always takes the same room, so SOLO and DUEL below it never jump while someone reaches for them */
+  .demo-text { min-height: 4.8em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
   /* a small phone held sideways is also under 640px wide: stack the panels at full width there too */
   .attract-body { flex-direction: column; width: 100%; }
   .attract-body > .panel { width: 100%; min-width: 0; }

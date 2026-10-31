@@ -162,9 +162,19 @@ function serveStatic(req, res, pathname) {
     if (!err && st.isDirectory()) { res.writeHead(301, { Location: `${pathname}/` }); return res.end(); }
     const type = core.CONTENT_TYPES[path.extname(file).toLowerCase()];
     if (err || !st.isFile() || !type) return notFound();
-    res.writeHead(200, { 'Content-Type': type, 'Content-Length': st.size, 'Cache-Control': 'no-cache' });
-    if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(file).pipe(res);
+    if (req.method === 'HEAD') {
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': st.size, 'Cache-Control': 'no-cache' });
+      return res.end();
+    }
+    // The game files are small: read the whole file first, so a failed read (e.g. a virus scanner briefly
+    // holding it) is retried once and otherwise answered with an error, never a response that hangs forever.
+    const send = (attempt) => fs.readFile(file, (readErr, data) => {
+      if (readErr && attempt === 0) return setTimeout(() => send(1), 150);
+      if (readErr) { res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '1' }); return res.end('Busy, try again'); }
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': data.length, 'Cache-Control': 'no-cache' });
+      res.end(data);
+    });
+    send(0);
   });
 }
 
