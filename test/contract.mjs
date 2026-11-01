@@ -48,11 +48,28 @@ export function apiContract(name, start) {
       const j = await list();
       assert.equal(typeof j.now, 'number');
       const rr = j.scores.filter((e) => e.game === 'route-rush');
-      assert.equal(rr[0].name, 'Bo');
+      assert.equal(rr[0].name, 'B*'); // "Bo", masked
       assert.ok(rr.every((e, i) => i === 0 || rr[i - 1].score >= e.score));
       assert.equal(j.scores.find((e) => e.id === 'a3').rank, 'Detective');
       assert.equal(j.scores.find((e) => e.id === 'a1').accuracy, 90);
-      assert.equal(j.scores.find((e) => e.id === 'long').name, 'A'.repeat(20));
+      assert.equal(j.scores.find((e) => e.id === 'long').name, 'AA***A'); // trimmed to 20 letters, then masked
+    });
+
+    test('names: first name + last initial (+ a number for a namesake) accepted; players only ever see them masked', async () => {
+      const j = await (await post([
+        S('n1', { name: 'Priya S.', score: 120 }), S('n2', { name: 'Priya S. 2', score: 110 }), S('n3', { name: 'Mohammed K.', score: 105 }),
+        S('n4', { name: 'Priya S.2' }), S('n5', { name: 'Priya SS.' }), S('n6', { name: 'Priya S. 1' }), S('n7', { name: '12' }),
+      ])).json();
+      assert.deepEqual(j.accepted.sort(), ['n1', 'n2', 'n3']);
+      assert.deepEqual(j.rejected.sort(), ['n4', 'n5', 'n6', 'n7']);
+      const shown = Object.fromEntries((await list()).scores.map((e) => [e.id, e.name]));
+      assert.equal(shown.n1, 'Pr***a S.');
+      assert.equal(shown.n2, 'Pr***a S. 2');
+      assert.equal(shown.n3, 'Mo***d K.');
+      assert.ok(Object.values(shown).every((n) => n.includes('*') || n.length <= 1), 'no full name leaves the public list');
+      const full = (await (await admin('GET', '/admin/scores?game=route-rush')).json()).scores.map((s) => s.name);
+      assert.ok(full.includes('Priya S.') && full.includes('Priya S. 2'), 'the admin page still sees full names');
+      for (const id of ['n1', 'n2', 'n3']) await admin('DELETE', `/admin/scores?game=route-rush&id=${id}`); // leave the data as the later tests expect
     });
 
     test('bad requests are refused', async () => {

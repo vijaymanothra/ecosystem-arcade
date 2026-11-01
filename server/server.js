@@ -171,7 +171,7 @@ function serveStatic(req, res, pathname) {
     const send = (attempt) => fs.readFile(file, (readErr, data) => {
       if (readErr && attempt === 0) return setTimeout(() => send(1), 150);
       if (readErr) { res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '1' }); return res.end('Busy, try again'); }
-      res.writeHead(200, { 'Content-Type': type, 'Content-Length': data.length, 'Cache-Control': 'no-cache' });
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': data.length, 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow' }); // keep the arcade out of search engines
       res.end(data);
     });
     send(0);

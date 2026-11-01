@@ -157,6 +157,12 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .sheet p { font-size: clamp(14px, 2.5vmin, 32px); font-weight: 600; color: #e8e4ff; margin-top: .6vmin; }
 .name-box { min-width: 60vmin; height: 11vmin; display: flex; align-items: center; justify-content: center; font-size: 8vmin; font-weight: 900; letter-spacing: .06em; border-bottom: 1vmin solid var(--accent); }
 .name-box::after { content: "_"; color: var(--accent); animation: blinkText 1s steps(2) infinite; }
+.name-box.initial-step::after { content: none; } /* the box already shows "Priya _." */
+/* the same name already has a passport on this device today: is it you? */
+.same-name { display: flex; flex-direction: column; align-items: center; gap: 2vmin; text-align: center; max-width: 92vmin; }
+.same-name p { font-size: clamp(15px, 2.6vmin, 30px); font-weight: 700; line-height: 1.35; }
+.same-actions { display: flex; gap: 2vmin; flex-wrap: wrap; justify-content: center; }
+.cta-small { font-size: clamp(15px, 2.6vmin, 30px); font-weight: 900; color: #1a1240; background: var(--accent); padding: 1.2vmin 3.4vmin; border-radius: 999px; box-shadow: 0 .5vmin 0 #b38a00; }
 .sheet .name-note { margin-top: 0; font-size: clamp(12px, 1.9vmin, 22px); color: var(--muted); font-weight: 600; text-align: center; }
 .keys { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.1vmin; width: min(100%, 92vmin); }
 .key { height: 8vmin; border-radius: 1.4vmin; background: rgba(255,255,255,.14); font-size: clamp(18px, 3.8vmin, 48px); font-weight: 800; box-shadow: 0 .6vmin 0 rgba(0,0,0,.4); }
@@ -249,6 +255,19 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* landscape phones: two columns of game rows and panels side by side */
 @media (max-height: 500px) and (min-width: 641px) {
   .tiles, .bottom { grid-template-columns: 1fr 1fr; }
+}
+/* phones held sideways: the name sheet fits one screen, so OK is always in sight (two rows of 14 keys,
+   no passport picture or tagline) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .overlay { align-items: center; }
+  .sheet { gap: 6px; padding: 10px 14px; width: min(100%, 760px); }
+  .sheet-head .pp-cover, .sheet-head p { display: none; }
+  .sheet h2 { font-size: 18px; }
+  .name-box { height: 40px; font-size: 26px; }
+  .sheet .name-note { font-size: 11px; }
+  .keys { grid-template-columns: repeat(14, 1fr); gap: 5px; width: 100%; }
+  .key { height: 40px; font-size: 16px; border-radius: 8px; }
+  .sheet-actions .ghost { font-size: 13px; padding: 6px 16px; }
 }
 
 @keyframes rainbow { to { background-position: 200% 0; } }

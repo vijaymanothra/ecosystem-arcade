@@ -58,13 +58,17 @@
     return read(HIDDEN, []).includes(gameByKey[key] || key);
   }
 
-  // what a leaderboard shows: nothing while it's paused
+  // what a leaderboard shows: nothing while it's paused; other players' names partly hidden ("Pr***a S."),
+  // the signed-in player's own scores in full
   function load(key) {
-    return isHidden(key) ? [] : stored(key);
+    if (isHidden(key)) return [];
+    const P = window.Passport;
+    return P && P.shownName ? stored(key).map((e) => ({ ...e, name: P.shownName(e) })) : stored(key);
   }
 
   function add(key, entry) {
     entry.at = now();
+    if (window.Passport && window.Passport.rememberMine) window.Passport.rememberMine(entry.id, entry.name); // so this player keeps seeing it in full
     const all = stored(key);
     all.push(entry);
     all.sort(byScore);

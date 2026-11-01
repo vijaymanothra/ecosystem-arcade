@@ -76,7 +76,7 @@ function createApi({
       for (const s of [...list].sort(core.byRank)) {
         if (seen.has(s.id)) continue;
         seen.add(s.id);
-        scores.push(core.toPublic(s));
+        scores.push({ ...core.toPublic(s), name: core.maskName(s.name) }); // players only ever see masked names
       }
     }
     const value = { scores, hidden: hiddenGames };

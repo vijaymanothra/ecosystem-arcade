@@ -80,9 +80,26 @@ function loadNameFilter(dir) {
   return { words, isBlocked };
 }
 
-// Names: letters (any language), spaces, hyphens and apostrophes only — what the on-screen keyboard
-// can type, plus real names like "Anne-Marie" or "O'Neil". No digits, emojis or symbols.
-const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}' -]*[\p{L}\p{M}])?$/u;
+// Names: letters (any language), spaces, hyphens and apostrophes — what the on-screen keyboard can type,
+// plus real names like "Anne-Marie" or "O'Neil" — optionally followed by a last initial ("Priya S.") and a
+// number that tells two people with the same name apart ("Priya S. 2"). No other digits, emojis or symbols.
+const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}' -]*[\p{L}\p{M}])?(?: \p{L}\.)?(?: [2-9]| [1-9]\d)?$/u;
+
+// Names leave the API partly hidden, so a public leaderboard can't be used to look employees up:
+// "Priya S." → "Pr***a S.", "Mohammed K." → "Mo***d K.", "Ann" → "A*n", "Li W." → "L* W.". Only the first name is masked; the last
+// initial and any number are kept. Keep in step with maskName() in shared/passport.js.
+function maskName(name) {
+  const s = String(name || '').trim();
+  if (!s || s.includes('*')) return s;
+  const [first, ...rest] = s.split(' ');
+  const ch = Array.from(first);
+  const n = ch.length;
+  const masked = n >= 4 ? ch.slice(0, 2).join('') + '***' + ch[n - 1] // always three stars: the length stays hidden too
+    : n === 3 ? ch[0] + '*' + ch[2]
+    : n === 2 ? ch[0] + '*'
+    : first;
+  return [masked, ...rest].join(' ');
+}
 
 // Returns a clean score ready to store, or null if it isn't acceptable.
 function cleanScore(e, now, isBlocked) {
@@ -177,6 +194,6 @@ const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).fil
 
 module.exports = {
   GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
-  loadNameFilter, cleanScore, toPublic, byRank, localToday, parseDay, parseLimit,
+  loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
   createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
 <title>The Ecosystem Arcade</title>
 <link rel="stylesheet" href="shared/launcher.css">
 </head>
@@ -47,10 +48,17 @@
           <p>Collect a stamp from every game today. All 5 = <b>Ecosystem Expert!</b></p>
         </div>
       </div>
-      <div class="label">TYPE YOUR FIRST NAME</div>
+      <div id="nameLabel" class="label">TYPE YOUR FIRST NAME</div>
       <div id="nameBox" class="name-box"></div>
-      <p class="name-note">Your first name and scores will appear on the leaderboards.</p>
+      <p class="name-note">Leaderboards show names partly hidden, like <b>Pr***a S.</b> Only you see yours in full.</p>
       <div id="keys" class="keys"></div>
+      <div id="sameName" class="same-name" hidden>
+        <p id="sameText"></p>
+        <div class="same-actions">
+          <button id="sameYes" class="cta-small" type="button">Yes, that's me</button>
+          <button id="sameNo" class="ghost" type="button"></button>
+        </div>
+      </div>
       <div class="sheet-actions">
         <button id="cancelBtn" class="ghost" type="button">Cancel</button>
       </div>

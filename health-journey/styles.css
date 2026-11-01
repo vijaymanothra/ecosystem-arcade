@@ -357,6 +357,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .entry-sub { font-size: clamp(16px, 3vmin, 38px); font-weight: 700; color: var(--muted); }
 .name-box { min-width: 60vmin; height: 12vmin; display: flex; align-items: center; justify-content: center; font-size: 8.5vmin; font-weight: 900; letter-spacing: .08em; border-bottom: 1vmin solid var(--accent); }
 .name-box::after { content: "_"; color: var(--accent); animation: blinkText 1s steps(2) infinite; }
+.name-box.initial-step::after { content: none; } /* the box already shows "Priya _." */
 .keys { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.2vmin; width: min(100%, 90vmin); }
 .key { height: 9vmin; border-radius: 1.5vmin; background: rgba(255,255,255,.14); font-size: clamp(18px, 4vmin, 50px); font-weight: 800; box-shadow: 0 .6vmin 0 rgba(0,0,0,.4); }
 .key:active { transform: translateY(.5vmin); box-shadow: none; }

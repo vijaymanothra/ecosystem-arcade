@@ -964,18 +964,36 @@
     del.addEventListener('click', () => typeKey('DEL'));
     const ok = el('button', 'key ok', 'OK');
     ok.type = 'button';
-    ok.addEventListener('click', saveName);
+    ok.addEventListener('click', okTapped);
     k.append(del, ok);
   }
+  // The winner's name: first name, then the first letter of their last name ("Priya S.")
   function typeKey(ch) {
     Sound.tap();
-    if (ch === 'DEL') G.name = G.name.slice(0, -1);
+    if (G.nameStep === 'initial') {
+      if (ch !== 'DEL') G.initial = ch;      // one letter: tapping another just replaces it
+      else if (G.initial) G.initial = '';
+      else setNameStep('first');             // ⌫ with no initial goes back to the first name
+    } else if (ch === 'DEL') G.name = G.name.slice(0, -1);
     else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
     renderName();
   }
+  function setNameStep(s) {
+    G.nameStep = s;
+    $('#entrySub').textContent = s === 'first' ? "Type the winner's first name" : 'Tap the first letter of their last name';
+    $('#nameBox').classList.toggle('initial-step', s === 'initial');
+    renderName();
+  }
   function renderName() {
-    $('#nameBox').textContent = G.name;
-    $('#keys .ok').disabled = !G.name;
+    const initialStep = G.nameStep === 'initial';
+    $('#nameBox').textContent = initialStep ? `${G.name} ${G.initial || '_'}.` : G.name;
+    $('#keys .ok').disabled = initialStep ? !G.initial : !G.name;
+  }
+  function okTapped() {
+    if (G.nameStep !== 'initial') { if (G.name) setNameStep('initial'); return; }
+    if (!G.initial) return;
+    G.name = `${G.name} ${G.initial}.`;
+    saveName();
   }
   // The signed-in player's name, or '' when several people played (the winner may be someone else).
   function soloName() {
@@ -990,8 +1008,9 @@
     saveName();
   }
   function goEntry() {
-    G.name = soloName();
-    renderName();
+    G.name = '';
+    G.initial = '';
+    setNameStep('first');
     $('#entryWho').textContent = `${G.winner.def.token} ${G.winner.def.name}`;
     $('#entryTop').textContent = CFG.leaderboardSize;
     show('entry');

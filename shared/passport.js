@@ -69,11 +69,49 @@
   function playersToday() {
     return Object.values(dayBook()[today()] || {});
   }
-  function currentName(max) {
+  // the signed-in player's name as scores are saved under it: "Priya S." (or "Priya S. 2")
+  function currentName() {
     const c = current();
-    if (!c) return '';
-    const letters = c.name.replace(/[^A-Za-z]/g, '').slice(0, max || 10);
-    return letters ? letters[0].toUpperCase() + letters.slice(1).toLowerCase() : '';
+    return c ? String(c.name).trim().slice(0, 20) : '';
+  }
+
+  // ---------------------------------------------------------------- names on screen
+  // Leaderboards show other people's names partly hidden ("Pr***a S."), so an open website can't be used to
+  // look employees up. The scores API already sends masked names; this masks what this device holds itself.
+  // Keep in step with maskName() in server/scores-core.js.
+  function maskName(name) {
+    const s = String(name || '').trim();
+    if (!s || s.includes('*')) return s;
+    const [first, ...rest] = s.split(' ');
+    const ch = Array.from(first);
+    const n = ch.length;
+    const masked = n >= 4 ? ch.slice(0, 2).join('') + '***' + ch[n - 1]
+      : n === 3 ? ch[0] + '*' + ch[2]
+      : n === 2 ? ch[0] + '*'
+      : first;
+    return [masked, ...rest].join(' ');
+  }
+  // Scores saved on this device, with the full name they were saved under, so a player still sees their
+  // own name in full on the boards (the API hands every name back masked).
+  const MINE = 'ecosystemArcade.myScores.v1';
+  function rememberMine(id, name) {
+    if (!id || !name) return;
+    const m = read(MINE, {});
+    m[id] = String(name);
+    const ids = Object.keys(m);
+    for (const old of ids.slice(0, Math.max(0, ids.length - 500))) delete m[old]; // keep the newest 500
+    write(MINE, m);
+  }
+  // What a leaderboard shows for a score: the signed-in player's own scores in full, everyone else masked.
+  function shownName(entry) {
+    const e = entry || {};
+    const c = current();
+    if (c) {
+      const mine = read(MINE, {})[e.id];
+      if (mine && keyOf(mine) === keyOf(c.name)) return mine;
+      if (keyOf(e.name) === keyOf(c.name)) return c.name;
+    }
+    return maskName(e.name);
   }
 
   function stamp(gameId, score) {
@@ -102,8 +140,9 @@
     const g = GAME[gameId];
     if (!g || paused(gameId)) return [];
     const best = new Map();
-    for (const e of read(g.lb, [])) {
-      if (!e || e.day !== today()) continue;
+    for (const raw of read(g.lb, [])) {
+      if (!raw || raw.day !== today()) continue;
+      const e = { ...raw, name: shownName(raw) };
       const k = keyOf(e.name);
       const b = best.get(k);
       if (!b || e.score > b.score) best.set(k, e);
@@ -415,7 +454,7 @@
     } catch { return null; }
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
+  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, maskName, shownName, rememberMine, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

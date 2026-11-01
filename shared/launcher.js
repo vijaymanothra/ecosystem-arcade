@@ -219,7 +219,7 @@
     const box = $('#experts');
     box.replaceChildren();
     if (!experts.length) box.append(el('div', 'expert-empty', 'Be the first to collect all 5 stamps today!'));
-    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${p.name}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
+    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${P.shownName({ name: p.name })}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
     $('#issued').textContent = `📮 ${players.length} passport${players.length === 1 ? '' : 's'} issued today`;
   }
 
@@ -252,13 +252,26 @@
     setTimeout(() => { location.href = `${id}/index.html?booth=1`; }, 450);
   }
 
+  // Signing in takes the first name, then the first letter of the last name: "Priya S."
+  let initial = '';
+  let step = 'first'; // 'first' → 'initial' → (same name already here today?) 'same'
   function openSignin(gameId) {
     pendingGame = gameId;
     typed = '';
-    renderName();
+    initial = '';
+    setStep('first');
     $('#signin').hidden = false;
   }
   function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
+  function setStep(s) {
+    step = s;
+    $('#nameLabel').textContent = s === 'first' ? 'TYPE YOUR FIRST NAME' : 'TAP THE FIRST LETTER OF YOUR LAST NAME';
+    $('#keys').hidden = s === 'same';
+    $('#sameName').hidden = s !== 'same';
+    $('#nameBox').classList.toggle('initial-step', s === 'initial');
+    renderName();
+  }
+  const fullName = () => `${typed} ${initial}.`;
 
   function buildKeys() {
     const k = $('#keys');
@@ -278,17 +291,39 @@
   }
   function typeKey(ch) {
     sfx.tap();
-    if (ch === 'DEL') typed = typed.slice(0, -1);
+    if (step === 'initial') {
+      if (ch !== 'DEL') initial = ch;          // one letter: tapping another just replaces it
+      else if (initial) initial = '';
+      else setStep('first');                   // ⌫ with no initial goes back to the first name
+    } else if (ch === 'DEL') typed = typed.slice(0, -1);
     else if (typed.length < NAME_MAX) typed += typed ? ch.toLowerCase() : ch;
     renderName();
   }
   function renderName() {
-    $('#nameBox').textContent = typed;
-    $('#keys .ok').disabled = !typed;
+    $('#nameBox').textContent = step === 'first' ? typed : `${typed} ${initial || '_'}.`;
+    $('#keys .ok').disabled = step === 'first' ? !typed : !initial;
   }
   function confirmName() {
-    if (!typed) return;
-    const c = P.signIn(typed);
+    if (step === 'first') { if (typed) setStep('initial'); return; }
+    if (!initial) return;
+    // someone with this exact name already has a passport on this device today: ask before joining it
+    const existing = P.player(fullName());
+    if (existing) {
+      const n = Object.keys(existing.stamps).length;
+      $('#sameText').textContent = `${fullName()} already has a passport on this device today (${n}/${P.GAMES.length} stamps). Is that you?`;
+      $('#sameNo').textContent = `No — I'm a different ${fullName()}`;
+      setStep('same');
+      return;
+    }
+    finishSignin(fullName());
+  }
+  // a different person with the same name: the next free number ("Priya S. 2", "Priya S. 3", …)
+  function nextFreeName(base) {
+    for (let i = 2; i < 100; i++) if (!P.player(`${base} ${i}`)) return `${base} ${i}`;
+    return `${base} ${Date.now() % 90 + 10}`;
+  }
+  function finishSignin(name) {
+    const c = P.signIn(name);
     sfx.stamp();
     const game = pendingGame;
     closeSignin();
@@ -346,6 +381,8 @@
   }
 
   $('#cancelBtn').addEventListener('click', () => { sfx.tap(); closeSignin(); });
+  $('#sameYes').addEventListener('click', () => { sfx.tap(); finishSignin(fullName()); });
+  $('#sameNo').addEventListener('click', () => { sfx.tap(); finishSignin(nextFreeName(fullName())); });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSignin();
