@@ -246,7 +246,9 @@
 
   function goDesk() {
     const remaining = CASES.filter((c) => !G.done.some((d) => d.kase === c));
-    G.offered = shuffle(remaining).slice(0, CFG.folderChoices);
+    // offer cases this player hasn't opened today (in any earlier game) first
+    const P = window.Passport;
+    G.offered = (P && P.freshFirst ? P.freshFirst(remaining, (c) => c.title) : shuffle(remaining)).slice(0, CFG.folderChoices);
     $('#deskCount').textContent = `CASE ${G.done.length + 1} OF ${CFG.casesPerGame}`;
     const box = $('#folders');
     box.replaceChildren();
@@ -275,6 +277,7 @@
     const id = G.runId;
     Sound.folder();
     G.kase = c;
+    if (window.Passport && window.Passport.markSeen) window.Passport.markSeen(c.title); // offered later only once the others are done
     $('#brCode').textContent = `${caseCode(c)} · CONFIDENTIAL`;
     $('#brPhoto').textContent = c.patient.icon;
     $('#brName').textContent = c.patient.name;

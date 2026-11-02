@@ -132,7 +132,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* ================================================================ LOBBY */
 /* Title / middle / start button as fixed rows: the middle only gets the space left over, so the button can never be
    pushed off the bottom (Safari on Mac could stretch the old flex layout to its content). */
-#lobby { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; justify-items: center; text-align: center; }
+#lobby { display: grid; grid-template-columns: minmax(0, 1fr); /* never wider than the screen */ grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; justify-items: center; text-align: center; }
 .lobby-bg { position: absolute; inset: 0; display: grid; place-items: center; z-index: -1; overflow: hidden; }
 .lobby-bg .board { width: 120vw; max-width: none; filter: blur(.35vmin) brightness(.45) saturate(1.2); transform: rotate(-6deg) scale(1.05); animation: lobbyPan 30s ease-in-out infinite alternate; }
 .brand { position: relative; }
@@ -146,6 +146,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 }
 .brand p { font-size: clamp(16px, 3vmin, 38px); color: #e8e4ff; font-weight: 700; margin-top: 1.2vmin; }
 .lobby-body { display: flex; gap: 3vmin; width: min(100%, 1600px); flex: 1; min-height: 0; align-items: stretch; }
+.lobby-body > * { min-width: 0; } /* a long name ("Pr***a S. #qw7") shortens with … instead of pushing the panel off the screen */
 .seats-wrap { flex: 1.6; display: flex; flex-direction: column; gap: 2vmin; background: rgba(10,8,35,.62); border-radius: 2.5vmin; padding: 2.5vmin; border: 2px solid rgba(255,255,255,.12); backdrop-filter: blur(4px); }
 .seats-wrap h2 { font-size: clamp(18px, 3.2vmin, 40px); }
 .seats-wrap h2 small { color: var(--muted); font-weight: 600; font-size: .7em; }
@@ -168,7 +169,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #lb { list-style: none; display: flex; flex-direction: column; gap: .7vmin; flex: 1; overflow: hidden; }
 #lb li { display: flex; align-items: center; gap: 1.5vmin; font-size: clamp(15px, 2.6vmin, 32px); font-weight: 700; font-variant-numeric: tabular-nums; padding: .4vmin 1.5vmin; border-radius: 1.2vmin; background: rgba(255,255,255,.04); }
 #lb .rank { width: 2em; text-align: left; color: var(--muted); }
-#lb .name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lb .name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #lb .stamps { color: var(--muted); font-size: .8em; }
 #lb .pts { color: var(--accent); min-width: 4.5em; text-align: right; }
 #lb li.new { animation: glow .6s ease-in-out infinite alternate; }
@@ -427,10 +428,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* the small decorative title sits where the player's 🏠 badge is; the big title already names the game */
 .eap-has-bar .mini-title { visibility: hidden; }
 
-/* narrower screens (e.g. 1024 wide): keep the title and the round counter clear of the 🏠 badge */
-@media (max-width: 1300px) and (min-height: 501px) {
-  .eap-has-bar #lobby .brand { padding-inline: var(--eap-bar-w, 0px); }
+/* shared screens: the round counter starts below the 🏠 badge (the title is kept clear by passport.js) */
+@media (min-width: 641px) and (min-height: 501px) {
   .eap-has-bar .side-head { padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
+  /* the centred lobby title moves down below the badge (side padding would only widen it off the screen) */
+  .eap-has-bar #lobby header.brand { padding-inline: 0; padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 1.5vmin)); }
 }
 
 /* upright kiosks, tablets and small laptops: the results title starts below the player's 🏠 badge */
@@ -438,10 +440,6 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1.5vmin); }
 }
 
-/* very wide kiosk screens (4K): the side panel doesn't grow as fast as the badge, so start it below the badge */
-@media (min-width: 2400px) {
-  .eap-has-bar .side-head { padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
-}
 
 /* upright tablets and kiosks: all players' cards in one compact row, with the ROLL box right below
    (two tall rows of cards pushed ROLL off the bottom with 3–4 players); the side panel scrolls as a last resort */

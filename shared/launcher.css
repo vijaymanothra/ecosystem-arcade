@@ -74,7 +74,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .tile .tt { font-size: clamp(12px, 2vmin, 24px); font-weight: 600; opacity: .95; line-height: 1.25; }
 .tile .chips { display: flex; flex-wrap: wrap; gap: .6vmin; margin-top: auto; }
 .tile .chips span { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 800; padding: .3vmin 1.2vmin; border-radius: 999px; background: rgba(0,0,0,.28); }
-.tile .best { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 700; opacity: .9; min-height: 1.3em; }
+.tile .best { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 700; opacity: .9; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line, so PLAY keeps its place */
 .tile .play { align-self: stretch; text-align: center; font-size: clamp(16px, 3vmin, 38px); font-weight: 900; letter-spacing: .08em; padding: 1vmin; border-radius: 999px; background: #fff; color: var(--c2); box-shadow: 0 .6vmin 0 rgba(0,0,0,.3); }
 .tile .new { position: absolute; top: 1.4vmin; right: 1.4vmin; font-size: clamp(10px, 1.6vmin, 18px); font-weight: 900; letter-spacing: .1em; padding: .3vmin 1.2vmin; border-radius: 999px; background: var(--accent); color: #1a1240; }
 .tile .stamped {
@@ -140,7 +140,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (prefers-reduced-motion: reduce) {
   .champ-game.swap, #champs.swap, #champs.swap li { animation: none; }
 }
-.expert-list { display: flex; flex-wrap: wrap; gap: .8vmin; }
+/* Experts come from every device, so the list can grow long: it scrolls inside its panel */
+.panel.experts { display: flex; flex-direction: column; }
+.expert-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .8vmin; min-height: 0; overflow-y: auto; }
+.panel.experts .issued { flex-shrink: 0; }
 .expert { padding: .5vmin 1.6vmin; border-radius: 999px; background: linear-gradient(90deg, #ffd23f, #ff7a1a); color: #1a1240; font-weight: 900; font-size: clamp(12px, 2vmin, 24px); animation: pop .5s backwards; }
 .expert-empty { color: var(--muted); font-size: clamp(12px, 2vmin, 24px); font-weight: 600; }
 .issued { margin-top: 1vmin; font-size: clamp(11px, 1.8vmin, 22px); color: var(--muted); font-weight: 700; }
@@ -158,6 +161,13 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .name-box { min-width: 60vmin; height: 11vmin; display: flex; align-items: center; justify-content: center; font-size: 8vmin; font-weight: 900; letter-spacing: .06em; border-bottom: 1vmin solid var(--accent); }
 .name-box::after { content: "_"; color: var(--accent); animation: blinkText 1s steps(2) infinite; }
 .name-box.initial-step::after { content: none; } /* the box already shows "Priya _." */
+.name-box .ini { color: var(--accent); margin-left: .3em; } /* the box is a flex row, which drops the space before it */
+.name-box .ini.empty { animation: blinkText 1s steps(2) infinite; }
+/* the question for each step: "STEP 1 OF 2" small, then "Type your first name" big, key words bold and gold */
+.name-ask { display: flex; flex-direction: column; align-items: center; gap: .5vmin; text-align: center; }
+.name-ask .ask-step { font-size: clamp(11px, 1.6vmin, 19px); letter-spacing: .26em; color: var(--muted); font-weight: 800; }
+.name-ask .ask-q { font-size: clamp(18px, 3.4vmin, 42px); font-weight: 700; color: #fff; line-height: 1.2; }
+.name-ask .ask-q b { color: var(--accent); font-weight: 900; }
 /* the same name already has a passport on this device today: is it you? */
 .same-name { display: flex; flex-direction: column; align-items: center; gap: 2vmin; text-align: center; max-width: 92vmin; }
 .same-name p { font-size: clamp(15px, 2.6vmin, 30px); font-weight: 700; line-height: 1.35; }
@@ -247,6 +257,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .sheet h2 { font-size: 22px; }
   .sheet p { font-size: 14px; }
   .name-box { min-width: 0; width: 100%; height: 52px; font-size: 32px; border-bottom-width: 4px; }
+  .name-ask { gap: 2px; }
+  .name-ask .ask-step { font-size: 10.5px; letter-spacing: .2em; }
+  .name-ask .ask-q { font-size: 18px; }
   .keys { gap: 6px; }
   .key { height: 46px; font-size: 20px; border-radius: 10px; box-shadow: 0 3px 0 rgba(0,0,0,.4); }
   .sheet-actions { gap: 10px; }
@@ -256,6 +269,17 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (max-height: 500px) and (min-width: 641px) {
   .tiles, .bottom { grid-template-columns: 1fr 1fr; }
 }
+/* shorter laptop and tablet screens leave the tiles little room for their art: STAMPED becomes a small corner tag
+   instead of a ribbon across the title (a stamped game no longer needs its NEW tag) */
+@media (min-width: 641px) and (min-height: 501px) and (max-height: 820px) and (orientation: landscape) {
+  .tile .stamped { top: .8vmin; right: .8vmin; transform: none; font-size: clamp(9px, 1.4vmin, 14px); letter-spacing: .06em; border-width: 2px; padding: .2vmin 1vmin; border-radius: 999px; }
+  .tile:has(.stamped) .new { display: none; }
+}
+/* a phone belongs to one person: no "I'm done — next player" there */
+@media (max-width: 640px), (max-height: 500px) {
+  .pp-actions .next-player { display: none; }
+  .pp-actions:not(:has(> :not(.next-player))) { display: none; }
+}
 /* phones held sideways: the name sheet fits one screen, so OK is always in sight (two rows of 14 keys,
    no passport picture or tagline) */
 @media (max-height: 500px) and (orientation: landscape) {
@@ -264,6 +288,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .sheet-head .pp-cover, .sheet-head p { display: none; }
   .sheet h2 { font-size: 18px; }
   .name-box { height: 40px; font-size: 26px; }
+  .name-ask { flex-direction: row; align-items: baseline; gap: 10px; }
+  .name-ask .ask-step { font-size: 10px; letter-spacing: .14em; }
+  .name-ask .ask-q { font-size: 16px; }
   .sheet .name-note { font-size: 11px; }
   .keys { grid-template-columns: repeat(14, 1fr); gap: 5px; width: 100%; }
   .key { height: 40px; font-size: 16px; border-radius: 8px; }

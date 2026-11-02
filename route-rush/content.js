@@ -13,6 +13,8 @@ window.RR_CONFIG = {
   eventDuration: 8,          // seconds a rush event lasts
   eventSpawnFactor: 0.55,    // during a rush, requests arrive this much faster
   wrongRevealMs: 1400,       // how long the correct answer is shown after a mistake
+  waitingDrain: 0.3,         // requests waiting in line lose patience at this fraction of the speed of the one being answered
+  readTime: 8,               // seconds a request has at least when it reaches the front, so there's always time to read it
   resultTimeoutSec: 45,      // results / name / ready screens return to attract after this much inactivity
   leaderboardSize: 10,
   leaderboardScope: 'today', // 'today' (resets daily) or 'all'

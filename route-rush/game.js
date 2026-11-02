@@ -11,6 +11,8 @@
     eventDuration: 8,
     eventSpawnFactor: 0.55,
     wrongRevealMs: 1400,
+    waitingDrain: 0.3,
+    readTime: 8,
     resultTimeoutSec: 45,
     leaderboardSize: 10,
     leaderboardScope: 'today',
@@ -258,7 +260,9 @@
     }
     const bizId = pick(pool);
     const fresh = BY_BIZ[bizId].filter((r) => !G.recent.includes(r));
-    const req = pick(fresh.length ? fresh : BY_BIZ[bizId]);
+    // not one of the last few, and one this player hasn't been sent today (in any earlier round), when there is one
+    const P = window.Passport;
+    const req = P && P.pickFresh ? P.pickFresh(fresh.length ? fresh : BY_BIZ[bizId], (r) => r.text) : pick(fresh.length ? fresh : BY_BIZ[bizId]);
     G.recent.push(req);
     if (G.recent.length > 14) G.recent.shift();
     const powerKeys = G.mode === 'solo' ? ['freeze', 'hint', 'double', 'heart'] : ['freeze', 'hint', 'double'];
@@ -453,7 +457,8 @@
         this.spawnT = lvl.spawnEvery * (G.event ? CFG.eventSpawnFactor : 1);
       }
 
-      if (!frozen) for (const it of this.queue) if (!it.resolving) it.left -= dt;
+      // the request being answered counts down in full; the ones still waiting in line only slowly
+      if (!frozen) this.queue.forEach((it, i) => { if (!it.resolving) it.left -= i === 0 ? dt : dt * CFG.waitingDrain; });
       for (const it of this.queue.slice()) {
         if (!it.resolving && it.left <= 0) this.expire(it);
         if (this.out) return;
@@ -471,6 +476,9 @@
     advance() {
       if (this.hintN > 0) this.hintN--;
       this.queue.shift();
+      // the next request always gives the player time to read it
+      const next = this.queue[0];
+      if (next) next.left = Math.max(next.left, Math.min(next.max, CFG.readTime));
       this.renderFront();
       this.renderQueue();
     }

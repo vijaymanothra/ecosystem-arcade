@@ -135,7 +135,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   padding: .4vmin 1.5vmin; border-radius: 1.2vmin; background: rgba(255,255,255,.04);
 }
 #lb .rank { width: 2em; text-align: left; color: var(--muted); }
-#lb .name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lb .name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #lb .mastered { color: var(--muted); font-size: .8em; }
 #lb .pts { color: var(--accent); min-width: 4.5em; text-align: right; }
 #lb li.new { animation: glow .6s ease-in-out infinite alternate; }
@@ -353,8 +353,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* narrower screens (e.g. 1024 wide): the big title would run under the 🏠 badge */
 @media (max-width: 1300px) { .eap-has-bar #attract .brand { padding-inline: var(--eap-bar-w, 0px); } }
 
-/* upright kiosks and tablets: the results title starts below the player's 🏠 badge */
-@media (orientation: portrait) and (min-width: 641px) {
+/* upright kiosks and tablets, and narrower shared screens: the results title starts below the player's 🏠 badge */
+@media (orientation: portrait) and (min-width: 641px), (min-width: 641px) and (max-width: 1300px) and (min-height: 501px) {
   .eap-has-bar #over { padding-top: calc(var(--eap-bar-h, 0px) + 1.5vmin); }
 }
 

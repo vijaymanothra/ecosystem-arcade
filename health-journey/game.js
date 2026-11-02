@@ -677,7 +677,9 @@
     const pool = QUESTIONS.filter((q) => q.business === bizId);
     if (!pool.length) return null;
     const fresh = pool.filter((q) => !G.used.has(q));
-    const q = pick(fresh.length ? fresh : pool);
+    // not one asked earlier in this game; and, for the signed-in player, one they haven't seen today in any game
+    const P = window.Passport;
+    const q = P && P.pickFresh ? P.pickFresh(fresh.length ? fresh : pool, (x) => x.q) : pick(fresh.length ? fresh : pool);
     G.used.add(q);
     return q;
   }

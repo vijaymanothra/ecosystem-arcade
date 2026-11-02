@@ -78,7 +78,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #lb { list-style: none; display: flex; flex-direction: column; gap: .6vmin; overflow: hidden; }
 #lb li { display: flex; align-items: center; gap: 1.4vmin; font-family: var(--type); font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; border-bottom: 1px dashed rgba(0,0,0,.2); padding: .3vmin .6vmin; }
 #lb .rank { width: 2em; }
-#lb .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lb .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #lb .rk { font-size: .8em; color: #8a7652; }
 #lb .pts { color: var(--red); min-width: 4em; text-align: right; }
 #lb li.new { animation: glow .6s ease-in-out infinite alternate; }

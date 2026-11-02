@@ -37,7 +37,7 @@
           <li><b>📜 Pick a blueprint</b> — one of our businesses</li>
           <li><b>✅ Pass the permit</b> — answer a question about it</li>
           <li><b>🏗️ Watch it rise</b> — population grows</li>
-          <li><b>📰 Survive the news</b> — the right businesses protect your city</li>
+          <li><b>📡 Watch the forecast</b> — build what the city will need before the news</li>
         </ol>
       </div>
       <div class="panel lb-panel">
@@ -83,6 +83,24 @@
         </div>
       </div>
       <div id="pmStamp" class="pm-stamp" hidden></div>
+    </div>
+  </div>
+
+  <!-- NEWS FORECAST (a day ahead, so the player can get ready) -->
+  <div id="forecast" class="overlay" hidden>
+    <div id="fcCard" class="fc-card">
+      <div class="fc-radar" aria-hidden="true"><span class="fc-sweep"></span><span id="fcIcon" class="fc-icon"></span></div>
+      <div class="fc-body">
+        <div class="fc-kicker">📡 NEWS FORECAST · <span id="fcWhen"></span></div>
+        <h2 id="fcHeadline"></h2>
+        <p id="fcNeed" class="fc-need"></p>
+        <div id="fcHint" class="fc-hint"></div>
+        <div class="fc-stakes">
+          <span class="good">✅ Ready <b id="fcGood"></b></span>
+          <span class="bad">⚠️ Not ready <b id="fcBad"></b></span>
+        </div>
+        <p class="tap-hint">Tap to continue</p>
+      </div>
     </div>
   </div>
 

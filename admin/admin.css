@@ -48,3 +48,15 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .hide-sm { display: none; }
   .toolbar .btn { flex: 1 1 auto; }
 }
+
+/* "show full names" is on: a warning that stays until names are hidden again */
+.warn-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 12px 14px;
+  border-radius: 12px; background: rgba(255,77,109,.16); border: 2px solid var(--bad); color: #ffe3e8; }
+.warn-banner b { color: #fff; }
+
+/* today's Ecosystem Experts (all five games played), full names for prizes */
+.experts-card { margin-top: 14px; }
+.experts-card h2 { display: flex; align-items: baseline; gap: 10px; font-size: 18px; }
+.expert-rows { margin: 10px 0 0 22px; display: grid; gap: 4px; }
+.expert-rows b { color: var(--accent); }
+.expert-rows span { color: var(--muted); font-size: 14px; }

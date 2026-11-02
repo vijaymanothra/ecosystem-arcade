@@ -561,3 +561,63 @@ window.QUIZ_JOURNEY = {
       fact: 'CuraScript SD distributes specialty drugs to hospitals and clinics.' },
   ],
 };
+
+// More bonus-round journeys. Each player gets one they haven't done today (Priya's above counts as one).
+// Every step is taken from the business's own public website (checked Nov 2026); the source page is noted
+// after each step. People are fictional. Please have Comms/Compliance review with the questions above.
+window.QUIZ_JOURNEYS = [
+  {
+    persona: 'Marcus',
+    intro: 'Follow Marcus through The Cigna Group. Tap the business that helps at each step — bonus points!',
+    steps: [
+      { answer: 'cigna',      text: 'Marcus opens his health plan\'s app to find an in-network doctor and review his coverage.',
+        fact: 'With the myCigna app, members can find in-network doctors, review coverage and access ID cards.' },          // cigna.com
+      { answer: 'mdlive',     text: 'On a holiday weekend he needs urgent care and talks to a doctor by phone.',
+        fact: 'MDLIVE urgent care doctors are available 24/7/365, including weekends and holidays, by phone or video.' },  // mdlive.com
+      { answer: 'enguide',    text: 'His doctor prescribes a GLP-1 medication, sent to his door by a pharmacy that focuses on GLP-1s.',
+        fact: 'Evernorth EnGuide Pharmacy is a home delivery pharmacy focused on GLP-1s, with free standard shipping.' },  // express-scripts.com/enguidepharmacy
+      { answer: 'ebcg',       text: 'Marcus wants to see a therapist, and a Care Navigator helps match him with one.',
+        fact: 'At Evernorth Behavioral Care Group, Care Navigators help match patients with the right provider.' },       // evernorth.com/behavioral-care/faq
+      { answer: 'express',    text: 'His doctor sends his long-term prescriptions to a home delivery pharmacy, with refills delivered to his door.',
+        fact: 'Express Scripts Pharmacy delivers long-term medications to your door; the fastest way to start is to ask your doctor to send the prescription.' }, // express-scripts.com/pharmacy/how-it-works
+      { answer: 'evicore',    text: 'His doctor orders a sleep study, and his health plan\'s partner reviews the prior authorization.',
+        fact: 'EviCore partners with health plans and providers on prior authorization, in areas including sleep, radiology and cardiovascular care.' }, // evicore.com
+    ],
+  },
+  {
+    persona: 'Elena',
+    intro: 'Follow Elena and her family through The Cigna Group. Tap the business that helps at each step — bonus points!',
+    steps: [
+      { answer: 'freedom',    text: 'Elena starts fertility treatment and orders her medications from "America\'s Leading Fertility Pharmacy".',
+        fact: 'Freedom Fertility Pharmacy exclusively supports patients undergoing fertility treatment; its pharmacists are available 24/7.' }, // freedomfertility.com/about-us
+      { answer: 'cigna',      text: 'She checks her claims and her digital ID card in her health plan\'s app.',
+        fact: 'The myCigna app gives members their ID cards and the details of their coverage and claims.' },               // cigna.com
+      { answer: 'mdlive',     text: 'Her 14-year-old son wants to talk to a therapist from home.',
+        fact: 'MDLIVE therapy can help children ages 10–17, by video or phone from home.' },                                // mdlive.com/mental-health
+      { answer: 'ebcg',       text: 'Elena and her partner start couples therapy, in person.',
+        fact: 'Evernorth Behavioral Care Group offers in-person or virtual therapy for individuals, couples and families.' }, // evernorth.com/behavioral-care
+      { answer: 'accredo',    text: 'Her father has a rare condition. His specialty medication is shipped refrigerated to his home.',
+        fact: 'Accredo is a specialty pharmacy for complex and rare conditions; refrigerated medications ship with coolant packs.' }, // accredo.com, accredo.com/frequently-asked-questions
+      { answer: 'evicore',    text: 'Her father\'s specialist places an order, and the prior authorization request is created automatically in the clinic\'s records system.',
+        fact: 'EviCore intelliPath creates prior authorization requests automatically when an order is placed in the EHR.' },  // evicore.com/.../evicore-intellipath
+    ],
+  },
+  {
+    persona: 'Dr. Okafor',
+    intro: 'Follow Dr. Okafor\'s clinic through The Cigna Group. Tap the business that helps at each step — bonus points!',
+    steps: [
+      { answer: 'curascript', text: 'The clinic restocks injectable and infused medications from a specialty distributor.',
+        fact: 'CuraScript SD provides specialty distribution of injectables and infused medications to medical providers.' }, // curascriptsd.com
+      { answer: 'evicore',    text: 'Prior authorization requests for the clinic\'s imaging orders are created from its EHR and submitted electronically.',
+        fact: 'EviCore intelliPath is deployed by provider organizations and is free of charge for EviCore-managed patients.' }, // evicore.com/.../evicore-intellipath
+      { answer: 'accredo',    text: 'A patient starting a specialty medication searches for copay assistance programs.',
+        fact: 'Accredo\'s Copay Assistance search tool helps patients find financial help for their medication.' },          // accredo.com
+      { answer: 'enguide',    text: 'A patient on a GLP-1 gets help from specially trained pharmacists to reach the right dose safely.',
+        fact: 'Evernorth EnGuide Pharmacy\'s pharmacists help patients get safely to their optimal dose and work with their doctor.' }, // express-scripts.com/enguidepharmacy
+      { answer: 'mdlive',     text: 'Another patient sees a dermatologist virtually for a non-emergency skin condition.',
+        fact: 'MDLIVE dermatology provides care for non-emergency hair, skin and nail conditions.' },                          // mdlive.com
+      { answer: 'curascript', text: 'A hospital needs a rare-disease medication within hours, delivered in Puerto Rico.',
+        fact: 'CuraScript SD\'s rare disease program delivers in all 50 states, Puerto Rico and Guam, with stat delivery within hours.' }, // curascriptsd.com/Rare-Disease-Specialty-Distribution-Program
+    ],
+  },
+];

@@ -24,9 +24,20 @@
   if (QUESTIONS.length !== allQuestions.length) {
     console.warn(`Skipped ${allQuestions.length - QUESTIONS.length} invalid question(s) in questions.js`);
   }
-  const JOURNEY = Object.assign({ persona: 'Our member', intro: '', steps: [] }, window.QUIZ_JOURNEY || {});
-  JOURNEY.steps = (JOURNEY.steps || []).filter((s) => BIZ[s.answer] && s.text);
-  const JOURNEY_ON = CFG.journeyRound && JOURNEY.steps.length > 0 && BUSINESSES.length >= 4;
+  // Bonus-round journeys: QUIZ_JOURNEY plus any in QUIZ_JOURNEYS. Each game uses one the player hasn't done today.
+  const JOURNEYS = [window.QUIZ_JOURNEY, ...(window.QUIZ_JOURNEYS || [])]
+    .filter(Boolean)
+    .map((j) => Object.assign({ persona: 'Our member', intro: '' }, j, { steps: (j.steps || []).filter((s) => BIZ[s.answer] && s.text) }))
+    .filter((j) => j.steps.length);
+  const JOURNEY_ON = CFG.journeyRound && JOURNEYS.length > 0 && BUSINESSES.length >= 4;
+  let JOURNEY = JOURNEYS[0] || { persona: 'Our member', intro: '', steps: [] };
+  function chooseJourney() {
+    const P = window.Passport;
+    JOURNEY = (P && P.pickFresh ? P.pickFresh(JOURNEYS, (j) => `journey:${j.persona}`) : JOURNEYS[Math.floor(Math.random() * JOURNEYS.length)]) || JOURNEY;
+    $('#jTitle').textContent = `${JOURNEY.persona}'s Journey`;
+    $('#jSub').textContent = JOURNEY.intro;
+    return JOURNEY.steps;
+  }
 
   const TYPES = {
     scenario: '🎯 Who handles this?',
@@ -259,11 +270,12 @@
   }
 
   function buildRun() {
-    // one random question per business, in random order
+    // one question per business, in random order: one this player hasn't seen today in any game, when there is one
+    const P = window.Passport;
     const run = [];
     for (const b of BUSINESSES) {
       const pool = QUESTIONS.filter((q) => q.business === b.id);
-      if (pool.length) run.push(pick(pool));
+      if (pool.length) run.push(P && P.pickFresh ? P.pickFresh(pool, (q) => q.q) : pick(pool));
     }
     return shuffle(run);
   }
@@ -288,7 +300,7 @@
     tryFullscreen();
     const id = ++state.runId;
     Object.assign(state, {
-      phase: 'main', run: buildRun(), steps: JOURNEY_ON ? JOURNEY.steps : [], idx: 0,
+      phase: 'main', run: buildRun(), steps: JOURNEY_ON ? chooseJourney() : [], idx: 0,
       score: 0, finalScore: 0, streak: 0, bestStreak: 0,
       mastered: new Set(), journeyCorrect: 0, correctTimes: [], locked: true,
     });
@@ -786,10 +798,10 @@
   $('#title').textContent = CFG.title;
   $('#subtitle').textContent = CFG.subtitle;
   $('#bizCount').textContent = BUSINESSES.length;
-  $('#personaName').textContent = JOURNEY.persona;
   $('#stepJourney').hidden = !JOURNEY_ON;
-  $('#jTitle').textContent = `${JOURNEY.persona}'s Journey`;
-  $('#jSub').textContent = JOURNEY.intro;
+  // one journey: name its person on the start screen; several: each game picks one
+  if (JOURNEYS.length > 1) $('#stepJourney').textContent = '3️⃣ Bonus: a patient journey';
+  else $('#personaName').textContent = JOURNEY.persona;
   buildBackground();
   buildKeys();
   renderAttractMap();

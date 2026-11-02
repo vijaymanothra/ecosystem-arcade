@@ -7,6 +7,7 @@
     tagline: '',
     turns: 10,
     newsEvery: 3,
+    forecastDays: 1,
     questionTime: 15,
     factSec: 5,
     levelPop: [1000, 1500, 2500],
@@ -466,6 +467,42 @@
     return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top };
   }
 
+  // ---- phones only: the whole city is small on a phone, so the camera moves in on the lot being built
+  // (permit + construction up close), then back out to the whole city. Laptops and kiosks never zoom.
+  const ZOOM_MS = 850;
+  const phoneZoom = () => !!(window.Passport && window.Passport.isPhone && window.Passport.isPhone());
+  function zoomTo(s) {
+    if (!phoneZoom()) return false;
+    const svg = city.svg;
+    svg.style.transition = 'none';
+    svg.style.transform = ''; // measure the city as it normally sits
+    const box = svg.getBoundingClientRect();
+    const lot = s.lotEl.getBoundingClientRect();
+    const hud = $('.hud').getBoundingClientRect();
+    if (!lot.width || !box.width) return false;
+    const room = innerHeight - hud.bottom;
+    const scale = Math.max(1.4, Math.min(4, (innerWidth * 0.45) / lot.width, (room * 0.3) / lot.height));
+    const lx = lot.left + lot.width / 2;
+    const ly = lot.top + lot.height / 2;
+    // the lot lands a little below the middle of the free space, so a tall building rising from it stays in view
+    const tx = innerWidth / 2;
+    const ty = hud.bottom + room * 0.64;
+    svg.style.transformOrigin = `${lx - box.left}px ${ly - box.top}px`;
+    void svg.getBoundingClientRect();
+    svg.style.transition = `transform ${ZOOM_MS}ms cubic-bezier(.3,.8,.3,1)`;
+    svg.style.transform = `translate(${tx - lx}px, ${ty - ly}px) scale(${scale})`;
+    return true;
+  }
+  function zoomOut(instant) {
+    const svg = city.svg;
+    if (!svg.style.transform) return false;
+    svg.style.transition = instant ? 'none' : `transform ${ZOOM_MS}ms cubic-bezier(.3,.8,.3,1)`;
+    svg.style.transform = '';
+    return !instant;
+  }
+  // a phone turned sideways mid-zoom: show the whole city again rather than a camera aimed at the old layout
+  addEventListener('orientationchange', () => zoomOut(true));
+
   // ================================================================ sky
   function setSky(mode) {
     const st = $('#stage');
@@ -525,6 +562,8 @@
     clearTimeout(G.idleTimer);
     $('#permit').hidden = true;
     $('#news').hidden = true;
+    $('#forecast').hidden = true;
+    zoomOut(true);
     renderLeaderboard(highlightId);
     show('attract');
     // showcase a finished city
@@ -543,9 +582,10 @@
     clearInterval(G.attractTimer);
     G.runId++;
     const id = G.runId;
-    Object.assign(G, { day: 1, pop: 0, permits: 0, approved: 0, newsGood: 0, newsTotal: 0, answerTimes: [], lastTouch: performance.now() });
+    Object.assign(G, { day: 1, pop: 0, permits: 0, approved: 0, newsGood: 0, newsTotal: 0, answerTimes: [], forecast: null, lastTouch: performance.now() });
     G.used = new Set();
     G.usedEvents = new Set();
+    zoomOut(true);
     resetCity();
     setSky('day');
     show('play');
@@ -563,13 +603,25 @@
       if (id !== G.runId) return;
       setSky(G.day > CFG.turns * 0.7 ? 'sunset' : 'day');
       renderHud();
+      if (!G.forecast) {
+        const nd = nextNewsDay();
+        if (nd && nd - G.day <= CFG.forecastDays) {
+          G.forecast = planForecast(nd);
+          await wait(900); // let the last build's celebration settle first
+          if (id !== G.runId) return;
+          renderHud();
+          await showForecast();
+          if (id !== G.runId) return;
+        }
+      }
       const bizId = await chooseBlueprint();
       if (id !== G.runId || !bizId) return;
       const s = city.slots[bizId];
       const level = s.level + 1;
       s.lotEl.classList.add('target');
+      const zoomed = zoomTo(s);
       const arrow = placeArrow(s);
-      await wait(700);
+      await wait(zoomed ? ZOOM_MS + 150 : 700);
       if (id !== G.runId) return;
       const res = await permit(bizId, level);
       if (id !== G.runId) return;
@@ -577,6 +629,7 @@
       arrow.remove();
       if (res.ok) await construct(s, level, res.gain);
       if (id !== G.runId) return;
+      if (zoomOut()) { await wait(ZOOM_MS); if (id !== G.runId) return; }
       if (G.day % CFG.newsEvery === 0 && G.day < CFG.turns) {
         await news();
         if (id !== G.runId) return;
@@ -605,13 +658,17 @@
       s.classList.toggle('l3', lv >= 3);
       if (s.dataset.id === bumpId) restartAnim(s, 'new');
     }
-    const nextNews = Math.ceil(G.day / CFG.newsEvery) * CFG.newsEvery;
+    const nextNews = nextNewsDay();
     const n = $('#newsIn');
-    if (nextNews >= CFG.turns) { n.textContent = '—'; n.classList.remove('soon'); }
+    if (!nextNews) { n.textContent = '—'; n.classList.remove('soon', 'ready'); }
     else {
       const inDays = nextNews - G.day;
-      n.textContent = inDays === 0 ? 'TONIGHT' : `in ${inDays} day${inDays > 1 ? 's' : ''}`;
-      n.classList.toggle('soon', inDays === 0);
+      const when = inDays === 0 ? 'TONIGHT' : inDays === 1 ? 'TOMORROW' : `in ${inDays} days`;
+      // once forecast, the bar shows what's coming (🤒 TONIGHT): green when the city is ready for it
+      const ready = !!G.forecast && isReady(G.forecast.ev);
+      n.textContent = G.forecast ? `${G.forecast.ev.icon} ${when}` : when;
+      n.classList.toggle('soon', inDays === 0 && !ready);
+      n.classList.toggle('ready', ready);
     }
   }
 
@@ -649,7 +706,19 @@
       pool.splice(pool.indexOf(b), 1);
     }
     while (chosen.length < 3 && pool.length) chosen.push(takeFrom(pool));
+    // a forecast the city isn't ready for: one of today's blueprints is always a business that helps
+    const f = G.forecast;
+    if (f && !isReady(f.ev) && !chosen.some((b) => f.ev.needs.includes(b.id))) {
+      const helpers = cands.filter((b) => f.ev.needs.includes(b.id));
+      if (helpers.length) chosen[city.slots[chosen[0].id].level === 0 ? 0 : chosen.length - 1] = pick(helpers);
+    }
     return shuffle(chosen);
+  }
+
+  function kindTag(lv, next) {
+    const k = el('span', `bp-kind${lv ? ' up' : ''}`);
+    k.append(el('span', 'kl', lv ? `UPGRADE → LEVEL ${next}` : 'NEW BUILD'), el('span', 'ks', lv ? `⬆ LV ${next}` : 'NEW'));
+    return k;
   }
 
   function chooseBlueprint() {
@@ -657,7 +726,11 @@
       const id = G.runId;
       const opts = dealOptions();
       if (!opts.length) { resolve(null); return; }
-      prompt(`📜 Day ${G.day} — pick a blueprint`, 'Which business should the city build?');
+      const f = G.forecast;
+      const helping = !!f && !isReady(f.ev);
+      prompt(`📜 Day ${G.day} — pick a blueprint`, helping
+        ? `📡 ${f.ev.headline.replace(/!$/, '')} ${f.day === G.day ? 'TONIGHT' : 'TOMORROW'} — look for the 📡 blueprint`
+        : 'Which business should the city build?');
       const hand = $('#hand');
       hand.replaceChildren();
       const timer = el('div', 'hand-timer');
@@ -674,11 +747,15 @@
         top.append(el('span', 'bp-icon', b.icon), el('span', 'bp-name', b.name));
         c.append(
           el('span', 'bp-stars', '★'.repeat(lv) + '☆'.repeat(3 - lv)),
-          el('span', `bp-kind${lv ? ' up' : ''}`, lv ? `UPGRADE → LEVEL ${next}` : 'NEW BUILD'),
+          kindTag(lv, next),
           top,
           el('span', 'bp-role', ROLES[b.id] || ''),
           el('span', 'bp-gain', `+${CFG.levelPop[next - 1].toLocaleString()} 👥`),
         );
+        if (helping && f.ev.needs.includes(b.id)) {
+          c.classList.add('radar');
+          c.insertBefore(el('span', 'bp-radar', `📡 READY FOR THE ${f.ev.icon} NEWS`), top);
+        }
         c.addEventListener('click', () => done(b.id));
         hand.append(c);
       });
@@ -715,7 +792,9 @@
   function pickQuestion(bizId) {
     const pool = QUESTIONS.filter((q) => q.business === bizId);
     const fresh = pool.filter((q) => !G.used.has(q));
-    const q = pick(fresh.length ? fresh : pool);
+    // not one asked earlier in this city; and one this player hasn't seen today in any game, when there is one
+    const P = window.Passport;
+    const q = P && P.pickFresh ? P.pickFresh(fresh.length ? fresh : pool, (x) => x.q) : pick(fresh.length ? fresh : pool);
     G.used.add(q);
     return q;
   }
@@ -862,14 +941,76 @@
   }
 
   // ---- news events
+  // The next news night (none on the last day), and whether the city has a business that helps.
+  function nextNewsDay() {
+    for (let d = G.day; d < CFG.turns; d++) if (d % CFG.newsEvery === 0) return d;
+    return 0;
+  }
+  function isReady(ev) { return ev.needs.some((n) => city.slots[n] && city.slots[n].level > 0); }
+
+  // Pick the coming story: one the city can still get ready for (a helping business that can be built),
+  // so the forecast is a real chance to plan, never a done deal or a lost cause.
+  function planForecast(day) {
+    let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
+    if (!pool.length) pool = EVENTS.slice();
+    const buildable = (id) => city.slots[id] && city.slots[id].level === 0 && QUESTIONS.some((q) => q.business === id);
+    const open = pool.filter((e) => !isReady(e) && e.needs.some(buildable));
+    return { day, ev: pick(open.length ? open : pool) };
+  }
+
+  function showForecast() {
+    return new Promise((resolve) => {
+      const id = G.runId;
+      const { ev, day } = G.forecast;
+      const builds = day - G.day + 1;
+      $('#fcIcon').textContent = ev.icon;
+      $('#fcWhen').textContent = `${day === G.day ? 'TONIGHT' : 'TOMORROW NIGHT'} · DAY ${day}`;
+      $('#fcHeadline').textContent = ev.headline;
+      $('#fcNeed').textContent = ev.need || '';
+      $('#fcNeed').hidden = !ev.need;
+      const hint = $('#fcHint');
+      if (isReady(ev)) {
+        const have = ev.needs.filter((n) => city.slots[n] && city.slots[n].level > 0).map((n) => `${BIZ[n].icon} ${BIZ[n].name}`);
+        hint.className = 'fc-hint ready';
+        hint.replaceChildren(el('span', null, '✅ Your city is ready: '), el('b', null, have.join(' & ')), el('span', null, ' is already built.'));
+      } else {
+        hint.className = 'fc-hint';
+        hint.replaceChildren(
+          el('span', null, '💡 Look for the blueprint marked '), el('b', 'fc-tag', '📡 READY'),
+          el('span', null, ` — you have ${builds} build${builds > 1 ? 's' : ''} to get ready.`));
+      }
+      $('#fcGood').textContent = `+${CFG.newsReward.toLocaleString()} 👥`;
+      $('#fcBad').textContent = `${CFG.newsPenalty.toLocaleString()} 👥`;
+      prompt('📡 News forecast', '');
+      const overlay = $('#forecast');
+      overlay.hidden = false;
+      restartAnim($('#fcCard'), 'in');
+      Sound.news();
+      const shownAt = performance.now();
+      let t = 0;
+      const done = () => {
+        clearTimeout(t);
+        overlay.onclick = null;
+        overlay.hidden = true;
+        resolve();
+      };
+      overlay.onclick = () => { if (performance.now() - shownAt > 1200) { Sound.tap(); done(); } };
+      t = setTimeout(() => { if (id === G.runId) done(); else overlay.hidden = true; }, 9000);
+    });
+  }
+
   function news() {
     return new Promise((resolve) => {
       const id = G.runId;
       const built = (e) => e.needs.some((n) => city.slots[n] && city.slots[n].level > 0);
-      let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
-      if (!pool.length) pool = EVENTS.slice();
-      const ready = pool.filter(built);
-      const ev = ready.length && Math.random() < 0.5 ? pick(ready) : pick(pool);
+      // the story that was forecast (a fallback pick only if there somehow wasn't one)
+      let ev = G.forecast && G.forecast.ev;
+      G.forecast = null;
+      if (!ev) {
+        let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
+        if (!pool.length) pool = EVENTS.slice();
+        ev = pick(pool);
+      }
       G.usedEvents.add(ev.headline);
       const ok = built(ev);
       G.newsTotal++;
@@ -917,6 +1058,7 @@
 
   // ---- finale
   async function finale(id) {
+    zoomOut(true);
     $('#hand').replaceChildren();
     prompt('🌃 Night falls over Evernorth City…', '');
     setSky('night');

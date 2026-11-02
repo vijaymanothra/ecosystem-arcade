@@ -17,7 +17,7 @@
 //
 //  Player endpoints:
 //    GET    /api/health                           → { ok: true }
-//    GET    /api/scores?day=YYYY-MM-DD&limit=50   → { now, scores: [...], hidden: [game ids] }
+//    GET    /api/scores?day=YYYY-MM-DD&limit=50   → { now, scores: [...], hidden: [game ids], fullNames, experts: [...], players: <how many played today> }
 //           the top `limit` per game for that day, plus the top `limit` per game of all time;
 //           games whose leaderboard staff have hidden are left out and listed in `hidden`
 //    POST   /api/scores  { scores: [{ id, game, name, score, day, at, ...details }] }
@@ -26,20 +26,25 @@
 //  Admin endpoints — scores only, never the games themselves. Each needs the admin password in
 //  the header  X-Admin-Token: <password>  (or Authorization: Bearer <password>, except on Azure,
 //  which keeps that header for itself). Pages on other websites are refused.
-//    GET    /api/admin/scores                     → { games: { <id>: count }, hiddenGames }
+//    GET    /api/admin/scores?day=YYYY-MM-DD      → { games: { <id>: count }, hiddenGames, experts: [that day's Ecosystem Experts, full names], players }
 //    GET    /api/admin/scores?game=<id>           → { game, hidden, scores: [every score, best first] }
 //    DELETE /api/admin/scores?game=<id>&id=<sid>  → { deleted: 0|1 }   one entry
 //    DELETE /api/scores?game=<id>                 → { deleted }        one game's scores, or all without ?game
-//    GET    /api/admin/settings                   → { hiddenGames }
-//    PUT    /api/admin/settings  { hiddenGames }  → { hiddenGames }    hide / show leaderboards
+//    GET    /api/admin/settings                   → { hiddenGames, showFullNames }
+//    PUT    /api/admin/settings  { hiddenGames?, showFullNames? } → the settings   hide / show leaderboards,
+//           show players' full names instead of masked ones ("Priya S." rather than "Pr***a S.")
 // ============================================================
 'use strict';
 
 const core = require('./scores-core');
 
 const GAME_IDS = Object.keys(core.GAMES);
+const EXPERT_SCAN_MAX = 20000; // a day's scores per game read to find Ecosystem Experts (score files hold at most 20,000)
+const EXPERTS_MAX = 200;       // Ecosystem Experts sent per day
 const cleanSettings = (s) => ({
   hiddenGames: Array.isArray(s && s.hiddenGames) ? GAME_IDS.filter((g) => s.hiddenGames.includes(g)) : [],
+  // staff switched on "show full names" (e.g. to announce winners): leaderboards show names unmasked until switched off
+  showFullNames: Boolean(s && s.showFullNames === true),
 });
 
 function createApi({
@@ -63,11 +68,35 @@ function createApi({
     return value;
   }
 
+  // Who played on a day, from the scores saved: everyone is one name + passport tag.
+  //   players: how many played at least one game (the "passports issued" count; a number, no names)
+  //   experts: everyone with a score in every game, in the order they finished their last game
+  //            (names come back full; callers mask them for players)
+  async function playersOn(day) {
+    const perGame = await Promise.all(GAME_IDS.map((g) => store.top(g, day, EXPERT_SCAN_MAX)));
+    const who = new Map(); // "priya s.#qw7" → { name, tag, firstAt: Map(game → when they first scored in it) }
+    perGame.forEach((list, gi) => {
+      for (const s of list) {
+        const tag = (s.details && s.details.tag) || '';
+        const key = `${String(s.name).toLowerCase()}#${tag}`;
+        const p = who.get(key) || { name: s.name, tag, firstAt: new Map() };
+        p.firstAt.set(gi, Math.min(p.firstAt.get(gi) ?? Infinity, s.at));
+        who.set(key, p);
+      }
+    });
+    const experts = [...who.values()]
+      .filter((p) => p.firstAt.size === GAME_IDS.length)
+      .map((p) => ({ name: p.name, tag: p.tag || undefined, at: Math.max(...p.firstAt.values()) }))
+      .sort((a, b) => a.at - b.at)
+      .slice(0, EXPERTS_MAX);
+    return { players: who.size, experts };
+  }
+
   async function topScores(day, limit) {
     const key = `${day}|${limit}`;
     const hit = listCache.get(key);
     if (hit && Date.now() - hit.at < listCacheMs) return hit.value;
-    const { hiddenGames } = await settings();
+    const { hiddenGames, showFullNames } = await settings();
     const games = GAME_IDS.filter((g) => !hiddenGames.includes(g)); // hidden boards: no names leave the API
     const lists = await Promise.all(games.flatMap((g) => [store.top(g, day, limit), store.top(g, null, limit)]));
     const seen = new Set();
@@ -76,10 +105,15 @@ function createApi({
       for (const s of [...list].sort(core.byRank)) {
         if (seen.has(s.id)) continue;
         seen.add(s.id);
-        scores.push({ ...core.toPublic(s), name: core.maskName(s.name) }); // players only ever see masked names
+        // players see names masked, unless staff have switched on "show full names"
+        scores.push({ ...core.toPublic(s), name: showFullNames ? s.name : core.maskName(s.name) });
       }
     }
-    const value = { scores, hidden: hiddenGames };
+    // today's Ecosystem Experts, the same on every screen (hidden when staff have hidden every leaderboard)
+    const today = await playersOn(day);
+    const experts = hiddenGames.length === GAME_IDS.length ? []
+      : today.experts.map((e) => ({ ...e, name: showFullNames ? e.name : core.maskName(e.name) }));
+    const value = { scores, hidden: hiddenGames, fullNames: showFullNames, experts, players: today.players };
     if (listCache.size > 50) listCache.clear();
     listCache.set(key, { at: Date.now(), value });
     return value;
@@ -116,8 +150,8 @@ function createApi({
     try {
       // ---------------------------------------------------------------- players
       if (req.path === '/api/scores' && req.method === 'GET') {
-        const { scores, hidden } = await topScores(core.parseDay(query.day), core.parseLimit(query.limit));
-        return json(200, { now: Date.now(), scores, hidden }, listCacheControl);
+        const { scores, hidden, fullNames, experts, players } = await topScores(core.parseDay(query.day), core.parseLimit(query.limit));
+        return json(200, { now: Date.now(), scores, hidden, fullNames, experts, players }, listCacheControl);
       }
 
       if (req.path === '/api/scores' && req.method === 'POST') {
@@ -172,7 +206,8 @@ function createApi({
         if (!query.game) {
           const games = {};
           for (const g of GAME_IDS) games[g] = (await store.list(g)).length;
-          return json(200, { games, hiddenGames });
+          // the day's Ecosystem Experts with full names and tags (e.g. for prizes)
+          return json(200, { games, hiddenGames, ...(await playersOn(core.parseDay(query.day))) });
         }
         if (!knownGame(query.game)) return json(400, { error: 'unknown game' });
         const scores = (await store.list(query.game)).sort(core.byRank).map(core.toPublic);
@@ -194,7 +229,8 @@ function createApi({
         if (!/^application\/json\b/i.test(headers['content-type'] || '')) return json(415, { error: 'send JSON (Content-Type: application/json)' });
         let body;
         try { body = JSON.parse(req.body || ''); } catch { return json(400, { error: 'invalid JSON' }); }
-        const next = cleanSettings(body);
+        // only the settings sent change (hiding a leaderboard doesn't reset "show full names", and the other way round)
+        const next = cleanSettings({ ...(await store.getSettings()), ...(body && typeof body === 'object' ? body : {}) });
         await store.setSettings(next);
         forget();
         return json(200, next);

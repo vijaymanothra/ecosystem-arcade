@@ -79,7 +79,7 @@
     const box = $('#tiles');
     box.replaceChildren();
     const c = P.current();
-    const me = c && P.player(c.name);
+    const me = c && P.player(c.name, c.tag);
     const champs = Object.fromEntries(P.champions().map((x) => [x.game.id, x.top]));
     P.GAMES.forEach((g, i) => {
       const t = TILES[g.id] || { art: g.icon, tagline: '', time: '', players: '' };
@@ -126,12 +126,12 @@
     const box = $('#passportPanel');
     box.replaceChildren();
     const c = P.current();
-    const me = c && P.player(c.name);
+    const me = c && P.player(c.name, c.tag);
     const top = el('div', 'pp-top');
     const txt = el('div');
     if (c) {
       const n = me ? Object.keys(me.stamps).length : 0;
-      txt.append(el('div', 'pp-name', `${c.name}'s Passport`), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`));
+      txt.append(el('div', 'pp-name', `${P.withTag(c.name, c.tag)}'s Passport`), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`));
       top.append(el('div', 'pp-icon', n >= P.GAMES.length ? '🏆' : '📮'), txt);
     } else {
       txt.append(el('div', 'pp-name', 'Evernorth Passport'), el('div', 'pp-sub', 'Get a stamp from every game today — all 5 makes you an Ecosystem Expert!'));
@@ -147,7 +147,7 @@
     }
     const actions = el('div', 'pp-actions');
     if (c) {
-      const done = el('button', 'ghost', "✋ I'm done — next player");
+      const done = el('button', 'ghost next-player', "✋ I'm done — next player"); // hidden on phones: one phone, one player
       done.type = 'button';
       done.addEventListener('click', () => { sfx.tap(); P.signOut(); renderAll(); toast('See you later! 👋 Passport saved for today.'); });
       actions.append(done);
@@ -215,12 +215,29 @@
 
   function renderExperts() {
     const players = P.playersToday();
-    const experts = players.filter((p) => Object.keys(p.stamps).length >= P.GAMES.length);
+    // Everyone who played all 5 today on any device (from the scores API), plus this device's own passports
+    // (they show straight away, even offline). One entry per person: same name and passport tag.
+    const shared = (window.Leaderboard && window.Leaderboard.experts) ? window.Leaderboard.experts() : [];
+    const local = players.filter((p) => Object.keys(p.stamps).length >= P.GAMES.length);
+    const keyOf = (e) => `${P.maskName(e.name).toLowerCase()}#${e.tag || ''}`;
+    const seen = new Set();
+    const experts = [];
+    for (const e of [...shared, ...local]) {
+      const k = keyOf(e);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      experts.push(e);
+    }
     const box = $('#experts');
     box.replaceChildren();
     if (!experts.length) box.append(el('div', 'expert-empty', 'Be the first to collect all 5 stamps today!'));
-    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${P.shownName({ name: p.name })}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
-    $('#issued').textContent = `📮 ${players.length} passport${players.length === 1 ? '' : 's'} issued today`;
+    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${P.shownName({ name: p.name, tag: p.tag })}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
+    // passports issued = players who played at least one game today: everyone, on any device (from the scores),
+    // or this device's own players who've played when the scores API hasn't answered yet
+    const playedHere = players.filter((p) => Object.keys(p.stamps).length > 0).length;
+    const playedEverywhere = window.Leaderboard && window.Leaderboard.playersToday ? window.Leaderboard.playersToday() : null;
+    const issued = Math.max(playedEverywhere || 0, playedHere);
+    $('#issued').textContent = `📮 ${issued} passport${issued === 1 ? '' : 's'} issued today`;
   }
 
   function renderAll() {
@@ -265,10 +282,15 @@
   function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
   function setStep(s) {
     step = s;
-    $('#nameLabel').textContent = s === 'first' ? 'TYPE YOUR FIRST NAME' : 'TAP THE FIRST LETTER OF YOUR LAST NAME';
+    // a clear question for each step, its key words in bold: "Type your first name", then
+    // "Tap the first letter of your last name"
+    const ask = (before, bold) => { const q = el('span', 'ask-q', before); q.append(el('b', null, bold)); return q; };
+    $('#nameLabel').replaceChildren(...(s === 'first' ? [el('span', 'ask-step', 'STEP 1 OF 2'), ask('Type your ', 'first name')]
+      : s === 'initial' ? [el('span', 'ask-step', 'STEP 2 OF 2'), ask('Tap the ', 'first letter of your last name')]
+      : [el('span', 'ask-step', 'ONE QUICK CHECK')]));
     $('#keys').hidden = s === 'same';
     $('#sameName').hidden = s !== 'same';
-    $('#nameBox').classList.toggle('initial-step', s === 'initial');
+    $('#nameBox').classList.toggle('initial-step', s !== 'first'); // no typing cursor once the name is complete
     renderName();
   }
   const fullName = () => `${typed} ${initial}.`;
@@ -300,38 +322,51 @@
     renderName();
   }
   function renderName() {
-    $('#nameBox').textContent = step === 'first' ? typed : `${typed} ${initial || '_'}.`;
+    const box = $('#nameBox');
+    if (step === 'first') box.textContent = typed;
+    // "Priya _." — the space for the last-name letter blinks until it's tapped, then shows the letter in gold
+    else box.replaceChildren(`${typed} `, el('span', initial ? 'ini' : 'ini empty', initial || '_'), '.');
     $('#keys .ok').disabled = step === 'first' ? !typed : !initial;
   }
   function confirmName() {
     if (step === 'first') { if (typed) setStep('initial'); return; }
     if (!initial) return;
-    // someone with this exact name already has a passport on this device today: ask before joining it
-    const existing = P.player(fullName());
-    if (existing) {
-      const n = Object.keys(existing.stamps).length;
-      $('#sameText').textContent = `${fullName()} already has a passport on this device today (${n}/${P.GAMES.length} stamps). Is that you?`;
-      $('#sameNo').textContent = `No — I'm a different ${fullName()}`;
+    // someone with this name already has a passport on this device today: ask before joining it. Each passport
+    // is listed by its tag ("Yes — I'm #qw7"); "No" makes a new passport with a new tag.
+    const existing = P.playersNamed(fullName());
+    if (existing.length) {
+      $('#sameText').textContent = existing.length === 1
+        ? `${fullName()} already has a passport on this device today. Is that you?`
+        : `${existing.length} people called ${fullName()} have a passport on this device today. Are you one of them?`;
+      const box = $('#sameActions');
+      box.replaceChildren();
+      for (const p of existing.slice(0, 4)) {
+        const n = Object.keys(p.stamps).length;
+        const b = el('button', 'cta-small', `Yes — I'm #${p.tag} · ${n}/${P.GAMES.length} stamps`);
+        b.type = 'button';
+        b.addEventListener('click', () => { sfx.tap(); finishSignin(fullName(), p.tag); });
+        box.append(b);
+      }
+      const no = el('button', 'ghost', `No — I'm a different ${fullName()}`);
+      no.type = 'button';
+      no.addEventListener('click', () => { sfx.tap(); finishSignin(fullName()); });
+      box.append(no);
       setStep('same');
       return;
     }
     finishSignin(fullName());
   }
-  // a different person with the same name: the next free number ("Priya S. 2", "Priya S. 3", …)
-  function nextFreeName(base) {
-    for (let i = 2; i < 100; i++) if (!P.player(`${base} ${i}`)) return `${base} ${i}`;
-    return `${base} ${Date.now() % 90 + 10}`;
-  }
-  function finishSignin(name) {
-    const c = P.signIn(name);
+  function finishSignin(name, tag) {
+    const c = P.signIn(name, tag);
     sfx.stamp();
     const game = pendingGame;
     closeSignin();
     renderAll();
     Confetti.burst(120);
-    const me = P.player(c.name);
+    const me = P.player(c.name, c.tag);
     const n = me ? Object.keys(me.stamps).length : 0;
-    toast(n ? `Welcome back, ${c.name}! ${n}/${P.GAMES.length} stamps so far.` : `Passport issued to ${c.name}! 📮`);
+    const label = P.withTag(c.name, c.tag);
+    toast(n ? `Welcome back, ${label}! ${n}/${P.GAMES.length} stamps so far.` : `Passport issued to ${label}! 📮`);
     if (game) setTimeout(() => go(game), 900);
   }
 
@@ -350,7 +385,7 @@
   document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
   setInterval(() => {
     if (Date.now() - lastTouch > LAUNCHER_IDLE_SIGNOUT_SEC * 1000) {
-      if (P.current()) { P.signOut(); renderAll(); }
+      if (P.current() && !P.isPhone()) { P.signOut(); renderAll(); } // a phone has no next player: stay signed in
       if (!$('#signin').hidden) closeSignin();
       lastTouch = Date.now();
     }
@@ -381,8 +416,6 @@
   }
 
   $('#cancelBtn').addEventListener('click', () => { sfx.tap(); closeSignin(); });
-  $('#sameYes').addEventListener('click', () => { sfx.tap(); finishSignin(fullName()); });
-  $('#sameNo').addEventListener('click', () => { sfx.tap(); finishSignin(nextFreeName(fullName())); });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSignin();

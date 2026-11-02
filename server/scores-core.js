@@ -38,7 +38,11 @@ const MAX_LIMIT = 100;          // scores per game per list
 const POSTS_PER_MINUTE = 300;
 const DETAILS_MAX = 8;          // extra per-game fields kept with a score (accuracy, rank, …)
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at']);
+const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at', 'tag']);
+// A player's passport tag ("qw7", shown as "#qw7"): three random characters that tell two people with the
+// same name apart on every screen. Lowercase letters and digits without look-alikes (0/o, 1/l/i). It identifies
+// nobody, so it is shown unmasked. Keep in step with TAG_CHARS in shared/passport.js.
+const TAG_RE = /^[a-hjkmnp-z2-9]{3}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // File types served to browsers (local server and the Azure upload).
@@ -81,9 +85,9 @@ function loadNameFilter(dir) {
 }
 
 // Names: letters (any language), spaces, hyphens and apostrophes — what the on-screen keyboard can type,
-// plus real names like "Anne-Marie" or "O'Neil" — optionally followed by a last initial ("Priya S.") and a
-// number that tells two people with the same name apart ("Priya S. 2"). No other digits, emojis or symbols.
-const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}' -]*[\p{L}\p{M}])?(?: \p{L}\.)?(?: [2-9]| [1-9]\d)?$/u;
+// plus real names like "Anne-Marie" or "O'Neil" — optionally followed by a last initial ("Priya S.").
+// No digits, emojis or symbols: two people with the same name are told apart by their passport tag.
+const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}' -]*[\p{L}\p{M}])?(?: \p{L}\.)?$/u;
 
 // Names leave the API partly hidden, so a public leaderboard can't be used to look employees up:
 // "Priya S." → "Pr***a S.", "Mohammed K." → "Mo***d K.", "Ann" → "A*n", "Li W." → "L* W.". Only the first name is masked; the last
@@ -117,6 +121,8 @@ function cleanScore(e, now, isBlocked) {
   const dayStart = Date.parse(`${day}T00:00:00Z`);
   if (!Number.isFinite(dayStart) || dayStart > now + DAY_MS) return null;
   const at = Number.isFinite(e.at) && e.at > 0 && e.at <= now + DAY_MS ? Math.round(e.at) : now;
+  // the passport tag is optional (older scores have none); a malformed one is simply left off
+  const tag = typeof e.tag === 'string' && TAG_RE.test(e.tag) && !(isBlocked && isBlocked(e.tag)) ? e.tag : null;
   // per-game extras (accuracy, rank, token …) are shown next to names, so text gets the same filter
   const details = {};
   for (const [k, v] of Object.entries(e)) {
@@ -129,6 +135,7 @@ function cleanScore(e, now, isBlocked) {
       details[k] = text;
     }
   }
+  if (tag) details.tag = tag;
   return { id, game, name, score, day, at, details };
 }
 
@@ -194,6 +201,6 @@ const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).fil
 
 module.exports = {
   GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
-  loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
+  TAG_RE, loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
   createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

@@ -34,11 +34,11 @@ export function exportScores(cfg) {
     }
     const list = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : [];
     console.log(`  ${game}: ${list.length} scores`);
-    for (const s of list) rows.push([game, s.name, s.score, s.day, new Date(s.at).toISOString(), s.id]);
+    for (const s of list) rows.push([game, s.name, (s.details && s.details.tag) || '', s.score, s.day, new Date(s.at).toISOString(), s.id]);
   }
   const csvCell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
   rows.sort((a, b) => a[0].localeCompare(b[0]) || b[2] - a[2]);
-  writeFileSync(join(dir, 'scores.csv'), [['game', 'name', 'score', 'day', 'saved_at_utc', 'id'], ...rows].map((r) => r.map(csvCell).join(',')).join('\n') + '\n');
+  writeFileSync(join(dir, 'scores.csv'), [['game', 'name', 'tag', 'score', 'day', 'saved_at_utc', 'id'], ...rows].map((r) => r.map(csvCell).join(',')).join('\n') + '\n');
   console.log(`\n✅ ${rows.length} scores saved in ${relative(ROOT, dir)} (scores.csv opens in Excel)`);
   return dir;
 }

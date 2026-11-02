@@ -31,11 +31,17 @@
       <button id="refreshBtn" class="btn">⟳ Refresh</button>
       <button id="hideAllBtn" class="btn">🙈 Hide all leaderboards</button>
       <button id="showAllBtn" class="btn">👁 Show all leaderboards</button>
+      <button id="fullNamesBtn" class="btn">🔓 Show full names</button>
       <button id="csvAllBtn" class="btn">⬇ Download all (CSV)</button>
       <button id="wipeAllBtn" class="btn danger">🗑 Wipe all scores</button>
       <button id="lockBtn" class="btn ghost">Lock</button>
     </div>
+    <div id="fullBanner" class="warn-banner" role="alert" hidden>
+      <span>⚠️ <b>Full names are visible to everyone</b> who opens the arcade or its leaderboards, on every screen, until you hide them again.</span>
+      <button id="maskNowBtn" class="btn danger">🔒 Hide names now</button>
+    </div>
     <p id="status" class="msg" role="status"></p>
+    <section id="expertsCard" class="card experts-card" aria-live="polite"></section>
     <div id="games"></div>
   </main>
 

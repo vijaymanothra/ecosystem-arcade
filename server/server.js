@@ -158,7 +158,11 @@ function serveStatic(req, res, pathname) {
   const parts = inside.split(path.sep);
   // only game files: nothing outside the project, nothing hidden, never this server folder (it holds the database)
   if (!inside || inside.startsWith('..') || path.isAbsolute(inside) || parts[0] === 'server' || parts.some((p) => p.startsWith('.'))) return notFound();
-  fs.stat(file, (err, st) => {
+  // A busy machine (or a virus scanner) can briefly fail the check on a file that is there: look once more
+  // before answering, and only call it missing when it really isn't there.
+  const check = (attempt) => fs.stat(file, (err, st) => {
+    if (err && attempt === 0) return setTimeout(() => check(1), 150);
+    if (err && err.code !== 'ENOENT' && err.code !== 'ENOTDIR') { res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '1' }); return res.end('Busy, try again'); }
     if (!err && st.isDirectory()) { res.writeHead(301, { Location: `${pathname}/` }); return res.end(); }
     const type = core.CONTENT_TYPES[path.extname(file).toLowerCase()];
     if (err || !st.isFile() || !type) return notFound();
@@ -176,6 +180,7 @@ function serveStatic(req, res, pathname) {
     });
     send(0);
   });
+  check(0);
 }
 
 // ---------------------------------------------------------------- server

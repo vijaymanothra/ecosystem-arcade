@@ -16,11 +16,12 @@
   const IDLE_HOME_SEC = 180;              // booth mode: back to the launcher after 3 idle minutes
 
   const GAMES = [
+    // the order the games appear on the home screen, the passport and the champions
+    { id: 'case-files', name: 'Case Files', icon: '🕵️', lb: 'caseFiles.leaderboard.v1', color: '#d62828' },
+    { id: 'evernorth-city', name: 'Evernorth City', icon: '🏙️', lb: 'evernorthCity.leaderboard.v1', color: '#1565c0' },
     { id: 'master-the-map', name: 'Master the Map', icon: '🗺️', lb: 'masterTheMap.leaderboard.v1', color: '#7b4dff' },
     { id: 'route-rush', name: 'Route Rush', icon: '🚦', lb: 'routeRush.leaderboard.v1', color: '#ff5f1f' },
     { id: 'health-journey', name: 'The Health Journey', icon: '🎲', lb: 'healthJourney.leaderboard.v1', color: '#2e9d57' },
-    { id: 'evernorth-city', name: 'Evernorth City', icon: '🏙️', lb: 'evernorthCity.leaderboard.v1', color: '#1565c0' },
-    { id: 'case-files', name: 'Case Files', icon: '🕵️', lb: 'caseFiles.leaderboard.v1', color: '#d62828' },
   ];
   const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g]));
 
@@ -33,9 +34,13 @@
   const keyOf = (name) => String(name || '').trim().toLowerCase();
 
   // ---------------------------------------------------------------- players
+  // A phone belongs to one person: there's no next player to make room for, so the passport stays signed in
+  // all day there. Shared screens (kiosks, laptops, tablets) sign a player out after a while without activity.
+  // Same sizes as the phone layouts in the stylesheets.
+  const isPhone = () => { try { return matchMedia('(max-width: 640px), (max-height: 500px)').matches; } catch { return false; } };
   function current() {
     const c = read(CUR, null);
-    if (!c || c.day !== today() || Date.now() - c.at > SESSION_TTL_MS) return null;
+    if (!c || c.day !== today() || (!isPhone() && Date.now() - c.at > SESSION_TTL_MS)) return null;
     return c;
   }
   function touch() {
@@ -49,30 +54,69 @@
     while (days.length > 14) delete all[days.shift()];
     return all;
   }
-  function signIn(name) {
+  // ---------------------------------------------------------------- passport tags
+  // Every passport gets a short random tag ("#qw7") that goes with each score it saves, so two people with the
+  // same name are told apart on every screen. Letters and digits without look-alikes (0/o, 1/l/i); keep in step
+  // with TAG_RE in server/scores-core.js.
+  const TAG_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const RUDE_TAGS = new Set(['ass', 'fuk', 'fck', 'fcu', 'sex', 'xxx', 'wtf', 'fag', 'cum', 'tit', 'gay', 'kkk', 'die', 'pee', 'poo', 'sht', 'dck', 'cok', 'vag', 'pus', 'nzi', 'jew', 'god', 'hag', 'hoe', 'kys', 'rap', 'ugh', 'stfu']);
+  function newTag(avoid) {
+    for (;;) {
+      const r = new Uint32Array(3);
+      (window.crypto || window.msCrypto).getRandomValues(r);
+      const t = Array.from(r, (n) => TAG_CHARS[n % TAG_CHARS.length]).join('');
+      if (!RUDE_TAGS.has(t) && !(avoid && avoid.has(t))) return t;
+    }
+  }
+  const passportKey = (name, tag) => `${keyOf(name)}#${tag || ''}`;
+  // "Priya S." + "qw7" → "Priya S. #qw7"
+  const withTag = (name, tag) => (tag ? `${name} #${tag}` : String(name || ''));
+
+  // Sign in to a passport. With a tag: continue that passport (from "is that you?"). Without: a new passport
+  // with a new tag, even when the name is already here today (that's a different person with the same name).
+  function signIn(name, tag) {
     const clean = String(name || '').trim();
     if (!clean) return null;
     const all = dayBook();
     const day = all[today()] || (all[today()] = {});
-    const k = keyOf(clean);
-    if (!day[k]) day[k] = { name: clean, stamps: {} };
+    let k = tag ? passportKey(clean, tag) : null;
+    if (!k || !day[k]) {
+      const taken = new Set(Object.values(day).filter((p) => keyOf(p.name) === keyOf(clean)).map((p) => p.tag));
+      const t = newTag(taken);
+      k = passportKey(clean, t);
+      day[k] = { name: clean, tag: t, stamps: {} };
+    }
     write(KEY, all);
-    const c = { name: day[k].name, day: today(), at: Date.now() };
+    const c = { name: day[k].name, tag: day[k].tag, day: today(), at: Date.now() };
     write(CUR, c);
     return c;
   }
   function signOut() { try { localStorage.removeItem(CUR); } catch { /* ignore */ } }
-  function player(name) {
+  // a passport on this device today, by name and tag
+  function player(name, tag) {
     const day = dayBook()[today()] || {};
-    return day[keyOf(name)] || null;
+    return day[passportKey(name, tag)] || null;
+  }
+  // every passport on this device today with this name (for "is that you?")
+  function playersNamed(name) {
+    return Object.values(dayBook()[today()] || {}).filter((p) => keyOf(p.name) === keyOf(name));
   }
   function playersToday() {
     return Object.values(dayBook()[today()] || {});
   }
-  // the signed-in player's name as scores are saved under it: "Priya S." (or "Priya S. 2")
+  // the signed-in player's name as scores are saved under it ("Priya S."), and their passport tag ("qw7")
   function currentName() {
     const c = current();
     return c ? String(c.name).trim().slice(0, 20) : '';
+  }
+  function currentTag() {
+    const c = current();
+    return (c && c.tag) || '';
+  }
+  // what the player is called on screen: "Priya S. #qw7"
+  function currentLabel() {
+    const c = current();
+    return c ? withTag(c.name, c.tag) : '';
   }
 
   // ---------------------------------------------------------------- names on screen
@@ -93,25 +137,74 @@
   }
   // Scores saved on this device, with the full name they were saved under, so a player still sees their
   // own name in full on the boards (the API hands every name back masked).
-  const MINE = 'ecosystemArcade.myScores.v1';
-  function rememberMine(id, name) {
+  const MINE = 'ecosystemArcade.myScores.v2';
+  function rememberMine(id, name, tag) {
     if (!id || !name) return;
     const m = read(MINE, {});
-    m[id] = String(name);
+    m[id] = { name: String(name), tag: tag || '' };
     const ids = Object.keys(m);
     for (const old of ids.slice(0, Math.max(0, ids.length - 500))) delete m[old]; // keep the newest 500
     write(MINE, m);
   }
-  // What a leaderboard shows for a score: the signed-in player's own scores in full, everyone else masked.
+  // What a leaderboard shows for a score: the signed-in player's own scores in full ("Priya S. #qw7"),
+  // everyone else masked ("Pr***a S. #k4m"). The tag is never hidden: it identifies nobody.
   function shownName(entry) {
     const e = entry || {};
+    // staff switched on "show full names" (admin page): everyone's name in full, as the API now sends them
+    if (window.Leaderboard && window.Leaderboard.fullNames && window.Leaderboard.fullNames()) return withTag(e.name, e.tag);
     const c = current();
     if (c) {
       const mine = read(MINE, {})[e.id];
-      if (mine && keyOf(mine) === keyOf(c.name)) return mine;
-      if (keyOf(e.name) === keyOf(c.name)) return c.name;
+      if (mine && keyOf(mine.name) === keyOf(c.name) && (mine.tag || '') === (c.tag || '')) return withTag(mine.name, mine.tag);
+      if (e.tag && e.tag === c.tag && keyOf(maskName(c.name)) === keyOf(maskName(e.name))) return withTag(c.name, c.tag);
     }
-    return maskName(e.name);
+    return withTag(maskName(e.name), e.tag);
+  }
+
+  // ---------------------------------------------------------------- what this player has already seen
+  // Master the Map, Health Journey and Evernorth City share one question bank, and every game can be played
+  // again, so each passport remembers the questions (and Case Files cases, Route Rush requests) its player has
+  // seen today; the games pick unseen ones first. Only when a player has seen every item of a pool does
+  // something come back, the one seen longest ago.
+  const SEEN_MAX = 1000;
+  // a short, stable key for a question's text
+  function seenKey(text) {
+    let h = 0x811c9dc5;
+    for (const ch of String(text || '')) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(36);
+  }
+  function seenBook() {
+    const c = current();
+    if (!c) return null;
+    const all = dayBook();
+    const day = all[today()] || (all[today()] = {});
+    const k = passportKey(c.name, c.tag);
+    const p = day[k] || (day[k] = { name: c.name, tag: c.tag, stamps: {} });
+    return { all, p };
+  }
+  function markSeen(text) {
+    const b = seenBook();
+    if (!b) return;
+    const seen = b.p.seen || (b.p.seen = {});
+    seen[seenKey(text)] = Date.now();
+    const keys = Object.keys(seen);
+    if (keys.length > SEEN_MAX) for (const k of keys.sort((x, y) => seen[x] - seen[y]).slice(0, keys.length - SEEN_MAX)) delete seen[k];
+    write(KEY, b.all);
+  }
+  // `items` in the order to offer them: never-seen first (shuffled), then the ones seen longest ago.
+  // textOf(item) gives the text that identifies an item (a question's wording, a case's title).
+  function freshFirst(items, textOf) {
+    const b = seenBook();
+    const seen = (b && b.p.seen) || {};
+    const list = (items || []).map((it) => ({ it, at: seen[seenKey(textOf(it))] || 0, r: Math.random() }));
+    list.sort((x, y) => (x.at - y.at) || (x.r - y.r));
+    return list.map((x) => x.it);
+  }
+  // one item the player hasn't seen (or has seen longest ago), remembered as seen from now on
+  function pickFresh(items, textOf) {
+    const it = freshFirst(items, textOf)[0];
+    if (it !== undefined) markSeen(textOf(it));
+    return it;
   }
 
   function stamp(gameId, score) {
@@ -119,15 +212,15 @@
     if (!c || !GAME[gameId]) return null;
     const all = dayBook();
     const day = all[today()] || (all[today()] = {});
-    const k = keyOf(c.name);
-    const p = day[k] || (day[k] = { name: c.name, stamps: {} });
+    const k = passportKey(c.name, c.tag);
+    const p = day[k] || (day[k] = { name: c.name, tag: c.tag, stamps: {} });
     const prev = p.stamps[gameId];
     const isNew = !prev;
     if (!prev || (score || 0) > prev.score) p.stamps[gameId] = { score: Math.round(score || 0), at: Date.now() };
     write(KEY, all);
     touch();
     const count = Object.keys(p.stamps).length;
-    showStamp(gameId, c.name, count, isNew);
+    showStamp(gameId, withTag(c.name, c.tag), count, isNew);
     updateChip();
     return { isNew, count, total: GAMES.length };
   }
@@ -167,6 +260,7 @@
       .eap-home{position:relative;width:clamp(34px,4.6vmin,120px);height:clamp(34px,4.6vmin,120px);border-radius:50%;border:0;cursor:pointer;
         background:rgba(255,255,255,.14);color:#fff;font-size:clamp(16px,2.4vmin,60px);display:grid;place-items:center;touch-action:manipulation;transition:transform .1s}
       .eap-home:active{transform:scale(.9)}
+      @media (min-width:641px) and (max-width:1500px),(orientation:portrait) and (min-width:641px){.eap-has-bar header.brand{padding-inline:var(--eap-bar-w,0px)}}
       .eap-saved{flex-basis:100%;width:100%;margin:0 0 .6vmin;text-align:center;font:800 clamp(14px,2.4vmin,30px) "Segoe UI",system-ui,sans-serif;color:#2ee59d;text-shadow:0 2px 6px rgba(0,0,0,.45)}
       .eap-stamp{position:fixed;left:50%;top:10vh;z-index:9999;transform:translateX(-50%);pointer-events:none;text-align:center;
         background:#fff8e6;color:#2b2118;border:8px double #d62828;border-radius:18px;padding:2.2vmin 4vmin;font-family:"Segoe UI",system-ui,sans-serif;
@@ -252,8 +346,8 @@
   function updateChip() {
     if (!chip) return;
     const c = current();
-    const p = c && player(c.name);
-    chip.textContent = c ? `📮 ${c.name} · ${p ? Object.keys(p.stamps).length : 0}/${GAMES.length}` : '📮';
+    const p = c && player(c.name, c.tag);
+    chip.textContent = c ? `📮 ${withTag(c.name, c.tag)} · ${p ? Object.keys(p.stamps).length : 0}/${GAMES.length}` : '📮';
   }
 
   function isBooth() {
@@ -426,7 +520,8 @@
       note.setAttribute('role', 'status');
       anchor.parentElement.insertBefore(note, anchor);
     }
-    note.textContent = `✅ Saved to the leaderboard as ${name}`;
+    const c = current(); // the signed-in player's own score: name and passport tag ("Priya S. #qw7")
+    note.textContent = `✅ Saved to the leaderboard as ${c && keyOf(name) === keyOf(c.name) ? withTag(c.name, c.tag) : name}`;
   }
 
   // ---------------------------------------------------------------- a name is required to play
@@ -454,7 +549,7 @@
     } catch { return null; }
   }
 
-  window.Passport = { GAMES, GAME, today, current, signIn, signOut, touch, player, playersToday, currentName, maskName, shownName, rememberMine, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
+  window.Passport = { GAMES, GAME, today, isPhone, current, signIn, signOut, touch, player, playersNamed, playersToday, currentName, currentTag, currentLabel, newTag, withTag, maskName, shownName, rememberMine, freshFirst, pickFresh, markSeen, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

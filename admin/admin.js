@@ -8,11 +8,11 @@
   'use strict';
 
   const GAMES = [
+    { id: 'case-files', name: 'Case Files', icon: '🕵️' },
+    { id: 'evernorth-city', name: 'Evernorth City', icon: '🏙️' },
     { id: 'master-the-map', name: 'Master the Map', icon: '🗺️' },
     { id: 'route-rush', name: 'Route Rush', icon: '🚦' },
     { id: 'health-journey', name: 'The Health Journey', icon: '🎲' },
-    { id: 'evernorth-city', name: 'Evernorth City', icon: '🏙️' },
-    { id: 'case-files', name: 'Case Files', icon: '🕵️' },
   ];
   const SHOW_ROWS = 50; // entries listed per game (CSV has them all)
   const $ = (s) => document.querySelector(s);
@@ -20,6 +20,9 @@
 
   let password = '';            // memory only
   let hiddenGames = [];
+  let playedToday = 0; // players who played at least one game today
+  let experts = []; // today's Ecosystem Experts (full names), e.g. for prizes
+  let showFullNames = false; // leaderboards show players' full names instead of masked ones
   const data = {};              // game id → scores (best first)
 
   // ---------------------------------------------------------------- talking to the API
@@ -74,8 +77,13 @@
 
   // ---------------------------------------------------------------- data
   async function loadAll() {
-    const summary = await api('GET', '/admin/scores');
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const summary = await api('GET', `/admin/scores?day=${today}`);
+    experts = summary.experts || [];
+    playedToday = summary.players || 0;
     hiddenGames = summary.hiddenGames || [];
+    showFullNames = Boolean((await api('GET', '/admin/settings')).showFullNames);
     await Promise.all(GAMES.map(async (g) => { data[g.id] = (await api('GET', `/admin/scores?game=${g.id}`)).scores; }));
     render();
   }
@@ -124,9 +132,29 @@
     });
   }
   const nameOf = (id) => (GAMES.find((g) => g.id === id) || { name: id }).name;
+  const who = (s) => (s.tag ? `${s.name} #${s.tag}` : s.name); // full name and passport tag
 
   $('#hideAllBtn').addEventListener('click', () => setHidden(GAMES.map((g) => g.id)));
   $('#showAllBtn').addEventListener('click', () => setHidden([]));
+
+  // Show full names on every leaderboard (to announce winners), until switched off again. Names are normally
+  // masked ("Pr***a S.") because the arcade is an open website.
+  async function setFullNames(on) {
+    if (on) {
+      const sure = await confirmBox({
+        title: 'Show full names to everyone?',
+        text: 'Every leaderboard — on the kiosks, on players’ phones and for anyone who has the link — will show full names ("Priya S. #qw7" instead of "Pr***a S. #qw7") until you hide them again. Anyone can take a screenshot meanwhile.',
+        yes: 'Show full names',
+      });
+      if (!sure) return;
+    }
+    await act('Saving', async () => {
+      const s = await api('PUT', '/admin/settings', { showFullNames: on });
+      return s.showFullNames ? 'Full names are now shown on every leaderboard. Screens update within about 20 seconds.' : 'Names are hidden again ("Pr***a S."). Screens update within about 20 seconds.';
+    });
+  }
+  $('#fullNamesBtn').addEventListener('click', () => setFullNames(!showFullNames));
+  $('#maskNowBtn').addEventListener('click', () => setFullNames(false));
 
   async function wipe(game) {
     const all = !game;
@@ -144,15 +172,15 @@
   $('#wipeAllBtn').addEventListener('click', () => wipe(null));
 
   async function removeOne(game, s) {
-    const sure = await confirmBox({ title: 'Remove this entry?', text: `"${s.name}" — ${s.score.toLocaleString()} points in ${nameOf(game)} (${when(s.at)}). Only this one score is removed.`, yes: 'Remove' });
+    const sure = await confirmBox({ title: 'Remove this entry?', text: `"${who(s)}" — ${s.score.toLocaleString()} points in ${nameOf(game)} (${when(s.at)}). Only this one score is removed.`, yes: 'Remove' });
     if (!sure) return;
-    await act('Removing', async () => ((await api('DELETE', `/admin/scores?game=${game}&id=${encodeURIComponent(s.id)}`)).deleted ? `Removed "${s.name}".` : 'That entry was already gone.'));
+    await act('Removing', async () => ((await api('DELETE', `/admin/scores?game=${game}&id=${encodeURIComponent(s.id)}`)).deleted ? `Removed "${who(s)}".` : 'That entry was already gone.'));
   }
 
   // ---------------------------------------------------------------- CSV
   function csv(rows) {
     const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-    return [['game', 'name', 'score', 'day', 'saved_at', 'id'], ...rows].map((r) => r.map(cell).join(',')).join('\n') + '\n';
+    return [['game', 'name', 'tag', 'score', 'day', 'saved_at', 'id'], ...rows].map((r) => r.map(cell).join(',')).join('\n') + '\n';
   }
   function download(name, text) {
     const a = el('a');
@@ -162,13 +190,25 @@
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
-  const rowsOf = (game) => data[game].map((s) => [game, s.name, s.score, s.day, new Date(s.at).toISOString(), s.id]);
+  const rowsOf = (game) => data[game].map((s) => [game, s.name, s.tag || '', s.score, s.day, new Date(s.at).toISOString(), s.id]);
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   $('#csvAllBtn').addEventListener('click', () => download(`arcade-scores-${stamp()}.csv`, csv(GAMES.flatMap((g) => rowsOf(g.id)))));
 
   // ---------------------------------------------------------------- screen
   const when = (at) => new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   function render() {
+    $('#fullBanner').hidden = !showFullNames;
+    $('#fullNamesBtn').textContent = showFullNames ? '🔒 Hide full names' : '🔓 Show full names';
+    // Ecosystem Experts: everyone with a score in all five games today, in the order they finished
+    const ex = $('#expertsCard');
+    ex.replaceChildren(el('h2', null, `🌟 Ecosystem Experts today`));
+    ex.querySelector('h2').append(el('span', 'count', `${experts.length} of ${playedToday} player${playedToday === 1 ? '' : 's'} who played today`));
+    if (!experts.length) ex.append(el('p', 'empty', 'Nobody has played all five games today yet.'));
+    else {
+      const ol = el('ol', 'expert-rows');
+      experts.forEach((p) => { const li = el('li'); li.append(el('b', null, who(p)), el('span', null, ` finished ${when(p.at)}`)); ol.append(li); });
+      ex.append(ol);
+    }
     const box = $('#games');
     box.replaceChildren();
     for (const g of GAMES) {
@@ -203,7 +243,7 @@
           const rm = el('button', 'btn small danger', 'Remove');
           rm.addEventListener('click', () => removeOne(g.id, s));
           const action = el('td'); action.append(rm);
-          row.append(el('td', null, String(i + 1)), el('td', null, s.name), el('td', 'num', s.score.toLocaleString()), el('td', 'hide-sm', when(s.at)), action);
+          row.append(el('td', null, String(i + 1)), el('td', null, who(s)), el('td', 'num', s.score.toLocaleString()), el('td', 'hide-sm', when(s.at)), action);
           body.append(row);
         });
         table.append(body);
