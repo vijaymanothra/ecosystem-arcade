@@ -106,6 +106,16 @@ const sqliteStore = {
   async setSettings(settings) {
     q.setSetting.run('admin', JSON.stringify(settings));
   },
+  // goodies handed over; nothing waits between reading and writing, so two requests can't overlap
+  async getClaims() {
+    const row = q.getSetting.get('claims');
+    return row ? JSON.parse(row.value) : [];
+  },
+  async updateClaims(change) {
+    const row = q.getSetting.get('claims');
+    const next = change(row ? JSON.parse(row.value) : []);
+    if (next) q.setSetting.run('claims', JSON.stringify(next));
+  },
 };
 
 const api = createApi({

@@ -20,6 +20,130 @@ export function apiContract(name, start) {
     const S = (id, x = {}) => ({ id, game: 'route-rush', name: 'Ana', score: 100, day: today, at: Date.now(), ...x });
     const list = async () => (await fetch(`${base}/api/scores?day=${today}&limit=10`)).json();
 
+    describe('passports and goodies', () => {
+      const GAMES = ['case-files', 'evernorth-city', 'master-the-map', 'route-rush', 'health-journey'];
+      const adm = (method, p, body) => fetch(`${base}/api${p}`, { method, headers: { 'X-Admin-Token': ADMIN, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+      // one score per game for the first `games` games, at the given share of right answers
+      const play = (id, name, tag, games, pct = 80) => post(GAMES.slice(0, games).map((game) => S(`${id}-${game}`, { game, name, tag, score: 500, pct })));
+      const give = (name, tag, via = 'games', game) => adm('POST', '/admin/goodies', { day: today, name, tag, via, game });
+      const wipe = () => adm('DELETE', '/scores');
+      const lookup = async (name) => (await (await fetch(`${base}/api/passports?day=${today}&name=${encodeURIComponent(name)}`)).json()).passports;
+      const board = async () => (await adm('GET', `/admin/goodies?day=${today}`)).json();
+      const setStock = (goodieStock) => adm('PUT', '/admin/settings', { goodieStock });
+      after(async () => { await wipe(); await setStock({ chocolate: 30, keychain: 30, 'phone-holder': 20, 'top-phone-holder': 10 }); });
+
+      test('the lookup finds only that exact name, with its stamps, for welcome back', async () => {
+        await wipe();
+        await play('w1', 'Priya S.', 'qw7', 3);
+        await play('w2', 'Priya S.', 'k4m', 1, 20);
+        await play('w3', 'Priya R.', 'abc', 1);
+        const found = await lookup('priya s.');
+        assert.deepEqual(found.map((p) => p.tag).sort(), ['k4m', 'qw7']);
+        const qw7 = found.find((p) => p.tag === 'qw7');
+        assert.equal(Object.keys(qw7.games).length, 3);
+        assert.equal(qw7.games['case-files'].pct, 80);
+        assert.deepEqual(await lookup('Nobody H.'), []);
+        assert.equal((await fetch(`${base}/api/passports?day=${today}`)).status, 400);
+      });
+
+      test('the best attempt counts, and below 40% does not pass', async () => {
+        await wipe();
+        await post([S('b1', { game: 'case-files', name: 'Bo T.', tag: 'bbb', pct: 39 }), S('b2', { game: 'evernorth-city', name: 'Bo T.', tag: 'bbb', pct: 39 }), S('b3', { game: 'route-rush', name: 'Bo T.', tag: 'bbb', pct: 39 })]);
+        assert.deepEqual((await board()).players, [], '39% in three games earns nothing');
+        await post([S('b4', { game: 'case-files', name: 'Bo T.', tag: 'bbb', pct: 40 }), S('b5', { game: 'evernorth-city', name: 'Bo T.', tag: 'bbb', pct: 90 }), S('b6', { game: 'route-rush', name: 'Bo T.', tag: 'bbb', pct: 41, score: 1 })]);
+        const [p] = (await board()).players;
+        assert.equal(p.passed, 3);
+        assert.equal(p.earned, 'chocolate');
+      });
+
+      test('a multiplayer score, with no share of right answers, never passes', async () => {
+        await wipe();
+        await post(GAMES.map((game) => S(`mp-${game}`, { game, name: 'Mo Z.', tag: 'mmm' })));
+        assert.deepEqual((await board()).players, []);
+      });
+
+      test('3, 4 and 5 passed games earn chocolate, keychain and phone holder, one per person', async () => {
+        await wipe();
+        await play('l2', 'Two A.', 'aaa', 2);
+        await play('l3', 'Three A.', 'bbb', 3);
+        await play('l4', 'Four A.', 'ccc', 4);
+        await play('l5', 'Five A.', 'ddd', 5);
+        const b = await board();
+        assert.deepEqual(Object.fromEntries(b.players.map((p) => [p.name, p.earned])), { 'Three A.': 'chocolate', 'Four A.': 'keychain', 'Five A.': 'phone-holder' });
+        assert.equal((await give('Two A.', 'aaa')).status, 409, 'two games is not enough');
+        assert.equal((await (await give('Four A.', 'ccc')).json()).claim.goodie, 'keychain');
+        const again = await give('Four A.', 'ccc');
+        assert.equal(again.status, 409, 'nobody collects twice');
+        assert.match((await again.json()).error, /already collected/);
+        assert.equal((await lookup('Four A.'))[0].claims[0].goodie, 'keychain', 'the player can see it was collected');
+        assert.equal((await board()).stock.keychain.left, 29);
+      });
+
+      test('two desks at the same moment hand over one goodie, and the last one only once', async () => {
+        await wipe();
+        await play('r1', 'Race A.', 'aaa', 3);
+        await play('r2', 'Race B.', 'bbb', 3);
+        const same = await Promise.all([give('Race A.', 'aaa'), give('Race A.', 'aaa'), give('Race A.', 'aaa')]);
+        assert.equal(same.filter((r) => r.status === 200).length, 1);
+        await wipe();
+        await setStock({ chocolate: 1 });
+        await play('r3', 'Race A.', 'aaa', 3);
+        await play('r4', 'Race B.', 'bbb', 3);
+        const both = await Promise.all([give('Race A.', 'aaa'), give('Race B.', 'bbb')]);
+        assert.equal(both.filter((r) => r.status === 200).length, 1);
+        await setStock({ chocolate: 30 });
+      });
+
+      test('when a goodie runs out, the next one down is offered; with nothing left, ask staff', async () => {
+        await wipe();
+        await setStock({ 'phone-holder': 0, keychain: 1, chocolate: 0 });
+        await play('o1', 'Out A.', 'aaa', 5);
+        await play('o2', 'Out B.', 'bbb', 5);
+        assert.equal((await (await give('Out A.', 'aaa')).json()).claim.goodie, 'keychain');
+        const none = await give('Out B.', 'bbb');
+        assert.equal(none.status, 409);
+        assert.match((await none.json()).error, /nothing left/);
+        await setStock({ 'phone-holder': 20, keychain: 30, chocolate: 30 });
+      });
+
+      test('top scorers: 2 per game, and someone with a phone holder passes it to the next person', async () => {
+        await wipe();
+        await post([
+          S('t1', { game: 'case-files', name: 'Top A.', tag: 'aaa', score: 900 }),
+          S('t2', { game: 'case-files', name: 'Top B.', tag: 'bbb', score: 800 }),
+          S('t3', { game: 'case-files', name: 'Top C.', tag: 'ccc', score: 700 }),
+        ]);
+        let top = (await board()).top;
+        assert.deepEqual(top.map((t) => t.name), ['Top A.', 'Top B.']);
+        assert.equal((await give('Top A.', 'aaa', 'top', 'case-files')).status, 200);
+        assert.equal((await give('Top A.', 'aaa', 'top', 'case-files')).status, 409);
+        top = (await board()).top;
+        assert.deepEqual(top.map((t) => t.name), ['Top B.'], 'one place on this board is given, one is left');
+        assert.equal((await board()).stock['top-phone-holder'].left, 9);
+      });
+
+      test('a top scorer may take a reserved phone holder after a smaller goodie', async () => {
+        await wipe();
+        await play('s1', 'Star A.', 'aaa', 3);
+        assert.equal((await (await give('Star A.', 'aaa')).json()).claim.goodie, 'chocolate');
+        assert.equal((await give('Star A.', 'aaa', 'top', 'case-files')).status, 200);
+      });
+
+      test('staff can undo a mistake; a full wipe starts goodies over; all of it needs the password', async () => {
+        await wipe();
+        await play('u1', 'Undo A.', 'aaa', 3);
+        const { claim } = await (await give('Undo A.', 'aaa')).json();
+        assert.equal((await board()).stock.chocolate.left, 29);
+        assert.deepEqual(await (await adm('DELETE', `/admin/goodies?id=${encodeURIComponent(claim.id)}`)).json(), { deleted: 1 });
+        assert.equal((await board()).stock.chocolate.left, 30);
+        assert.equal((await give('Undo A.', 'aaa')).status, 200, 'and it can be given again');
+        assert.equal((await fetch(`${base}/api/admin/goodies?day=${today}`)).status, 401);
+        assert.equal((await fetch(`${base}/api/admin/goodies`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
+        await wipe();
+        assert.deepEqual((await board()).claims, []);
+      });
+    });
+
     test('health answers', async () => {
       const r = await fetch(`${base}/api/health`);
       assert.equal(r.status, 200);
@@ -180,9 +304,9 @@ export function apiContract(name, start) {
       // switching it on doesn't touch which boards are hidden, and the other way round
       await admin('PUT', '/admin/settings', { hiddenGames: ['route-rush'] });
       let r = await admin('PUT', '/admin/settings', { showFullNames: true });
-      assert.deepEqual(await r.json(), { hiddenGames: ['route-rush'], showFullNames: true });
+      assert.deepEqual(await r.json(), { hiddenGames: ['route-rush'], showFullNames: true, goodieStock: { chocolate: 30, keychain: 30, 'phone-holder': 20, 'top-phone-holder': 10 } });
       r = await admin('PUT', '/admin/settings', { hiddenGames: [] });
-      assert.deepEqual(await r.json(), { hiddenGames: [], showFullNames: true }, 'hiding/showing boards keeps full names on');
+      assert.deepEqual(await r.json(), { hiddenGames: [], showFullNames: true, goodieStock: { chocolate: 30, keychain: 30, 'phone-holder': 20, 'top-phone-holder': 10 } }, 'hiding/showing boards keeps full names on');
       await admin('PUT', '/admin/settings', { hiddenGames: ['route-rush'] });
       await sleep(3100);
       j = await list();
@@ -194,7 +318,7 @@ export function apiContract(name, start) {
       assert.equal((await fetch(`${base}/api/admin/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: '{"showFullNames":false}' })).status, 401);
       // switched off: masked again
       r = await admin('PUT', '/admin/settings', { showFullNames: false, hiddenGames: [] });
-      assert.deepEqual(await r.json(), { hiddenGames: [], showFullNames: false });
+      assert.deepEqual(await r.json(), { hiddenGames: [], showFullNames: false, goodieStock: { chocolate: 30, keychain: 30, 'phone-holder': 20, 'top-phone-holder': 10 } });
       await sleep(3100);
       j = await list();
       assert.equal(j.fullNames, false);
@@ -215,7 +339,7 @@ export function apiContract(name, start) {
         if ((await post([])).status === 429) limited = true; else allowed++;
       }
       assert.ok(limited);
-      assert.ok(allowed >= POSTS_PER_MINUTE - 20, `only ${allowed} allowed before limiting`); // earlier tests in this suite also posted (about a dozen)
+      assert.ok(allowed >= POSTS_PER_MINUTE - 60, `only ${allowed} allowed before limiting`); // earlier tests in this suite also posted (about 40)
     });
   });
 }

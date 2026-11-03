@@ -96,6 +96,13 @@ function createScoreFiles(backend, {
       }
       throw Object.assign(new Error("couldn't save settings.json"), { code: 'TOO_BUSY' });
     },
+    // goodies handed over, in goodie-claims.json; the same ETag check means two staff desks can't overlap
+    async getClaims() {
+      return (await load('goodie-claims')).list;
+    },
+    async updateClaims(change) {
+      await update('goodie-claims', change);
+    },
     async readAll(games) {           // for exports: every score, newest file contents
       const out = {};
       for (const g of games) out[g] = (await load(g)).list;

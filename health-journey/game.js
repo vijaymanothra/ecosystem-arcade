@@ -161,7 +161,7 @@
     return score > 0 && (b.length < CFG.leaderboardSize || score > b[b.length - 1].score);
   }
   function addScore(name, score, stamps, token) {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, stamps, token, day: today() };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, stamps, token, pct: G.pct, day: today() };
     return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
@@ -176,7 +176,7 @@
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', `${e.token || ''} ${e.name}`),
+        window.Passport.dimTag(el('span', 'name', `${e.token || ''} ${e.name}`)),
         el('span', 'stamps', `📮 ${e.stamps}/${BUSINESSES.length}`),
         el('span', 'pts', e.score.toLocaleString()),
       );
@@ -373,7 +373,7 @@
     G.runId++;
     const seats = seatIdx || [...G.joined].sort();
     G.players = seats.map((i) => ({
-      def: PLAYER_DEFS[i], seat: i, pos: 0, coins: 0, stamps: new Set(), double: false, finished: false, tokenEl: null, cardEl: null,
+      def: PLAYER_DEFS[i], seat: i, pos: 0, coins: 0, right: 0, asked: 0, stamps: new Set(), double: false, finished: false, tokenEl: null, cardEl: null,
     }));
     G.turn = 0;
     G.round = 1;
@@ -746,6 +746,8 @@
         const elapsed = (performance.now() - t0) / 1000;
         const ci = opts.findIndex((o) => o.correct);
         const ok = choice === ci;
+        p.asked++;
+        if (ok) p.right++;
         btns.forEach((bt, k) => { bt.disabled = true; if (k !== ci && k !== choice) bt.classList.add('dim'); });
         btns[ci].classList.add('right');
         if (choice >= 0 && !ok) btns[choice].classList.add('wrong');
@@ -893,7 +895,10 @@
       return Object.assign(p, { stampBonus, total: p.coins + stampBonus });
     }).sort((a, b) => b.total - a.total || b.pos - a.pos);
     G.winner = ranked[0];
-    if (window.Passport) window.Passport.stamp('health-journey', G.winner.total);
+    // only a one-player game counts towards goodies: with several, the winner may not be the signed-in player
+    const me = G.players.length === 1 ? G.players[0] : null;
+    G.pct = me ? (me.asked ? Math.round((100 * me.right) / me.asked) : 0) : undefined;
+    if (window.Passport) window.Passport.stamp('health-journey', G.winner.total, G.pct);
 
     const finisher = G.players.find((p) => p.finished);
     const title = $('#resTitle');
@@ -953,49 +958,9 @@
   }
 
   // ================================================================ name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', okTapped);
-    k.append(del, ok);
-  }
-  // The winner's name: first name, then the first letter of their last name ("Priya S.")
-  function typeKey(ch) {
-    Sound.tap();
-    if (G.nameStep === 'initial') {
-      if (ch !== 'DEL') G.initial = ch;      // one letter: tapping another just replaces it
-      else if (G.initial) G.initial = '';
-      else setNameStep('first');             // ⌫ with no initial goes back to the first name
-    } else if (ch === 'DEL') G.name = G.name.slice(0, -1);
-    else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function setNameStep(s) {
-    G.nameStep = s;
-    $('#entrySub').textContent = s === 'first' ? "Type the winner's first name" : 'Tap the first letter of their last name';
-    $('#nameBox').classList.toggle('initial-step', s === 'initial');
-    renderName();
-  }
-  function renderName() {
-    const initialStep = G.nameStep === 'initial';
-    $('#nameBox').textContent = initialStep ? `${G.name} ${G.initial || '_'}.` : G.name;
-    $('#keys .ok').disabled = initialStep ? !G.initial : !G.name;
-  }
-  function okTapped() {
-    if (G.nameStep !== 'initial') { if (G.name) setNameStep('initial'); return; }
-    if (!G.initial) return;
-    G.name = `${G.name} ${G.initial}.`;
-    saveName();
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { G.name = name; saveName(); } });
   }
   // The signed-in player's name, or '' when several people played (the winner may be someone else).
   function soloName() {
@@ -1011,8 +976,7 @@
   }
   function goEntry() {
     G.name = '';
-    G.initial = '';
-    setNameStep('first');
+    nameKeys.reset();
     $('#entryWho').textContent = `${G.winner.def.token} ${G.winner.def.name}`;
     $('#entryTop').textContent = CFG.leaderboardSize;
     show('entry');

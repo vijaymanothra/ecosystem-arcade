@@ -169,9 +169,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #lb { list-style: none; display: flex; flex-direction: column; gap: .7vmin; flex: 1; overflow: hidden; }
 #lb li { display: flex; align-items: center; gap: 1.5vmin; font-size: clamp(15px, 2.6vmin, 32px); font-weight: 700; font-variant-numeric: tabular-nums; padding: .4vmin 1.5vmin; border-radius: 1.2vmin; background: rgba(255,255,255,.04); }
 #lb .rank { width: 2em; text-align: left; color: var(--muted); }
-#lb .name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lb .name { flex: 1; min-width: 0; text-align: left; overflow-wrap: break-word; line-height: 1.15; } /* a long name wraps: the last initial and tag tell people apart, so they are never cut off */
 #lb .stamps { color: var(--muted); font-size: .8em; }
-#lb .pts { color: var(--accent); min-width: 4.5em; text-align: right; }
+#lb .pts { color: var(--accent); min-width: 3em; text-align: right; }
 #lb li.new { animation: glow .6s ease-in-out infinite alternate; }
 #lb li.empty { justify-content: center; text-align: center; color: var(--muted); background: none; flex: 1; }
 
@@ -479,4 +479,23 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .seat .sn { font-size: 14px; }
   .seat .ss { font-size: 10.5px; }
   .lb-panel { padding: 10px 12px; }
+}
+
+/* the smallest phones held sideways: names keep the stamp count's room, and a challenge's result fits down to "Tap to continue" */
+@media (max-height: 500px) and (max-width: 700px) and (orientation: landscape) {
+  #lb .stamps { display: none; }
+}
+@media (max-height: 360px) and (orientation: landscape) {
+  .ch-head { padding: 4px 10px; }
+  .ch-name { font-size: 17px; }
+  .ch-kicker { font-size: 9px; }
+  .ch-body { padding: 6px 12px; gap: 4px; }
+  .ch-q { font-size: 16px; }
+  .ch-q.long { font-size: 14px; }
+  .ch-result { gap: 3px; }
+  .ch-res-title { font-size: 18px; }
+  .ch-answer { font-size: 12.5px; }
+  .ch-fact { padding: 3px 8px; }
+  .ch-fact p { font-size: 12.5px; margin-top: 1px; }
+  .ch-foot .tap-hint { font-size: 11px; }
 }

@@ -24,6 +24,15 @@ const GAMES = {
   'case-files': { maxScore: 5000 },
 };
 const NAME_MAX = 20;
+// Goodies at the booth. A solo game counts as passed with at least PASS_PCT% of its answers right (best attempt
+// counts); each person gets the highest goodie they've earned. Keep in step with GOODIES in shared/passport.js.
+const PASS_PCT = 40;
+const GOODIES = [
+  { id: 'chocolate', name: 'Chocolate', games: 3, stock: 30 },
+  { id: 'keychain', name: 'Keychain', games: 4, stock: 30 },
+  { id: 'phone-holder', name: 'Phone holder', games: 5, stock: 20 },
+];
+const TOP_PRIZE = { id: 'top-phone-holder', goodie: 'phone-holder', perGame: 2, stock: 10 }; // top 2 on each game's board
 const DETAIL_TEXT_MAX = 20;     // per-game extras shown next to names (rank, token …)
 const MAX_BODY = 64 * 1024;     // bytes per request
 const MAX_PER_POST = 25;        // scores per upload (the games send at most 25 at a time)
@@ -201,6 +210,6 @@ const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).fil
 
 module.exports = {
   GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
-  TAG_RE, loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
+  PASS_PCT, GOODIES, TOP_PRIZE, TAG_RE, loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
   createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

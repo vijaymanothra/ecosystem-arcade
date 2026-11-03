@@ -3,7 +3,6 @@
 
   const P = window.Passport;
   const LAUNCHER_IDLE_SIGNOUT_SEC = 90; // nobody touches the launcher → sign the player out for the next person
-  const NAME_MAX = 10;
 
   // Tile copy + look. Game ids must match the folder names and Passport.GAMES.
   const TILES = {
@@ -101,7 +100,7 @@
         el('div', 'tn', g.name),
         el('div', 'tt', t.tagline),
         chips,
-        el('div', 'best', P.paused(g.id) ? '🔒 Leaderboard paused' : top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
+        P.dimTag(el('div', 'best', P.paused(g.id) ? '🔒 Leaderboard paused' : top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today')),
         el('div', 'play', '▶ PLAY'),
       );
       tile.querySelector('.art').style.animationDelay = `${-i * 0.6}s`;
@@ -122,6 +121,28 @@
   addEventListener('resize', fitArt);
   if (document.fonts) document.fonts.ready.then(fitArt);
 
+  // Where the player stands for a goodie: how far to the next one, or a button that shows the card for the goodie desk.
+  function goodieLine() {
+    const st = P.currentGoodie();
+    if (st.collected || st.earned) {
+      const b = el('button', 'pp-goodie on', st.collected ? `🎁 ${st.collected.name} collected` : `🎁 ${st.earned.name} earned: tap to collect`);
+      b.type = 'button';
+      b.addEventListener('click', () => { sfx.tap(); P.showGoodie(); });
+      return b;
+    }
+    const more = st.next.games - st.passed;
+    const line = el('div', 'pp-goodie', `🎁 Pass ${more} more game${more === 1 ? '' : 's'} for a goodie`);
+    line.append(el('span', 'pp-goodie-how', ` (${P.PASS_PCT}%+ right, solo)`));
+    return line;
+  }
+  // a passport on this device catches up with the server: goodies collected at the desk, stamps from another browser
+  async function syncMine() {
+    const c = P.current();
+    if (!c || !window.Leaderboard || !window.Leaderboard.lookup) return;
+    const mine = (await window.Leaderboard.lookup(c.name)).find((p) => p.tag === c.tag);
+    if (mine && P.syncRemote(mine)) renderAll();
+  }
+
   function renderPassport() {
     const box = $('#passportPanel');
     box.replaceChildren();
@@ -131,7 +152,7 @@
     const txt = el('div');
     if (c) {
       const n = me ? Object.keys(me.stamps).length : 0;
-      txt.append(el('div', 'pp-name', `${P.withTag(c.name, c.tag)}'s Passport`), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`));
+      txt.append(P.dimTag(el('div', 'pp-name', `${c.name}'s Passport${c.tag ? ` #${c.tag}` : ''}`)), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`), goodieLine());
       top.append(el('div', 'pp-icon', n >= P.GAMES.length ? '🏆' : '📮'), txt);
     } else {
       txt.append(el('div', 'pp-name', 'Evernorth Passport'), el('div', 'pp-sub', 'Get a stamp from every game today — all 5 makes you an Ecosystem Expert!'));
@@ -198,7 +219,7 @@
       const e = top[i];
       const li = el('li', `p${i + 1}`);
       li.append(el('span', 'medal', medal));
-      if (e) li.append(el('span', 'who', e.name), el('span', 'sc', e.score.toLocaleString()));
+      if (e) li.append(P.dimTag(el('span', 'who', e.name)), el('span', 'sc', e.score.toLocaleString()));
       else li.append(el('span', 'none', i === 0 ? 'up for grabs — play now!' : 'up for grabs'));
       ol.append(li);
     });
@@ -231,7 +252,7 @@
     const box = $('#experts');
     box.replaceChildren();
     if (!experts.length) box.append(el('div', 'expert-empty', 'Be the first to collect all 5 stamps today!'));
-    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${P.shownName({ name: p.name, tag: p.tag })}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
+    experts.forEach((p, i) => { const e = P.dimTag(el('span', 'expert', `🏆 ${P.shownName({ name: p.name, tag: p.tag })}`)); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
     // passports issued = players who played at least one game today: everyone, on any device (from the scores),
     // or this device's own players who've played when the scores API hasn't answered yet
     const playedHere = players.filter((p) => Object.keys(p.stamps).length > 0).length;
@@ -249,7 +270,7 @@
 
   // ---------------------------------------------------------------- choose + sign in
   let pendingGame = null;
-  let typed = '';
+  let step = 'name'; // 'name' → 'checking' → (a passport with this name exists today?) 'same'
 
   function choose(id) {
     sfx.tap();
@@ -269,95 +290,67 @@
     setTimeout(() => { location.href = `${id}/index.html?booth=1`; }, 450);
   }
 
-  // Signing in takes the first name, then the first letter of the last name: "Priya S."
-  let initial = '';
-  let step = 'first'; // 'first' → 'initial' → (same name already here today?) 'same'
+  // Signing in takes the full name, kept only as "Priya S.". If that name already has a passport today, on this
+  // device or (from its scores) on the server, ask before joining it: scanning the QR code again can open a fresh
+  // browser that has forgotten the player, and they should get their stamps back, not a second passport.
+  let entry = null;
+  let signinRun = 0; // a cancelled sheet ignores the answer it was waiting for
+  const LOOKUP_WAIT_MS = 4000;
   function openSignin(gameId) {
+    signinRun++;
     pendingGame = gameId;
-    typed = '';
-    initial = '';
-    setStep('first');
+    setStep('name');
+    entry.reset();
     $('#signin').hidden = false;
   }
-  function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
+  function closeSignin() { signinRun++; $('#signin').hidden = true; pendingGame = null; }
   function setStep(s) {
     step = s;
-    // a clear question for each step, its key words in bold: "Type your first name", then
-    // "Tap the first letter of your last name"
-    const ask = (before, bold) => { const q = el('span', 'ask-q', before); q.append(el('b', null, bold)); return q; };
-    $('#nameLabel').replaceChildren(...(s === 'first' ? [el('span', 'ask-step', 'STEP 1 OF 2'), ask('Type your ', 'first name')]
-      : s === 'initial' ? [el('span', 'ask-step', 'STEP 2 OF 2'), ask('Tap the ', 'first letter of your last name')]
-      : [el('span', 'ask-step', 'ONE QUICK CHECK')]));
-    $('#keys').hidden = s === 'same';
+    const q = el('span', 'ask-q', 'Please Enter Your ');
+    q.append(el('b', null, 'Full Name'));
+    $('#nameLabel').replaceChildren(...(s === 'name' ? [q] : [el('span', 'ask-step', s === 'checking' ? 'CHECKING…' : 'ONE QUICK CHECK')]));
+    $('#keys').hidden = s !== 'name';
+    $('#nameNote').hidden = s !== 'name';
     $('#sameName').hidden = s !== 'same';
-    $('#nameBox').classList.toggle('initial-step', s !== 'first'); // no typing cursor once the name is complete
-    renderName();
   }
-  const fullName = () => `${typed} ${initial}.`;
-
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
+    entry = P.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: sfx.tap, onDone: confirmName });
+  }
+  function typeKey(ch) { if (step === 'name') entry.type(ch); }
+  async function confirmName(name) {
+    const run = ++signinRun;
+    setStep('checking');
+    entry.setHint(`You'll appear as: ${name}`);
+    const remote = window.Leaderboard && window.Leaderboard.lookup ? await window.Leaderboard.lookup(name, LOOKUP_WAIT_MS) : [];
+    if (run !== signinRun) return; // cancelled meanwhile
+    // this device's passports and the server's, one entry per tag
+    const found = new Map(P.playersNamed(name).map((p) => [p.tag, { tag: p.tag, stamps: new Set(Object.keys(p.stamps)) }]));
+    for (const r of remote) {
+      const f = found.get(r.tag) || { tag: r.tag, stamps: new Set() };
+      for (const id of Object.keys(r.games || {})) f.stamps.add(id);
+      f.remote = r;
+      found.set(r.tag, f);
+    }
+    if (!found.size) { finishSignin(name); return; }
+    $('#sameText').textContent = found.size === 1
+      ? `We found a passport for ${name} today. Is that you?`
+      : `We found ${found.size} passports for ${name} today. Is one of them you?`;
+    const box = $('#sameActions');
+    box.replaceChildren();
+    for (const f of [...found.values()].slice(0, 4)) {
+      const b = el('button', 'cta-small', `Yes — I'm #${f.tag} · ${f.stamps.size}/${P.GAMES.length} stamps`);
       b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
+      b.addEventListener('click', () => { sfx.tap(); finishSignin(name, f.tag, f.remote); });
+      box.append(b);
     }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', confirmName);
-    k.append(del, ok);
+    const no = el('button', 'ghost', "No — I'm someone else");
+    no.type = 'button';
+    no.addEventListener('click', () => { sfx.tap(); finishSignin(name); });
+    box.append(no);
+    setStep('same');
   }
-  function typeKey(ch) {
-    sfx.tap();
-    if (step === 'initial') {
-      if (ch !== 'DEL') initial = ch;          // one letter: tapping another just replaces it
-      else if (initial) initial = '';
-      else setStep('first');                   // ⌫ with no initial goes back to the first name
-    } else if (ch === 'DEL') typed = typed.slice(0, -1);
-    else if (typed.length < NAME_MAX) typed += typed ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    const box = $('#nameBox');
-    if (step === 'first') box.textContent = typed;
-    // "Priya _." — the space for the last-name letter blinks until it's tapped, then shows the letter in gold
-    else box.replaceChildren(`${typed} `, el('span', initial ? 'ini' : 'ini empty', initial || '_'), '.');
-    $('#keys .ok').disabled = step === 'first' ? !typed : !initial;
-  }
-  function confirmName() {
-    if (step === 'first') { if (typed) setStep('initial'); return; }
-    if (!initial) return;
-    // someone with this name already has a passport on this device today: ask before joining it. Each passport
-    // is listed by its tag ("Yes — I'm #qw7"); "No" makes a new passport with a new tag.
-    const existing = P.playersNamed(fullName());
-    if (existing.length) {
-      $('#sameText').textContent = existing.length === 1
-        ? `${fullName()} already has a passport on this device today. Is that you?`
-        : `${existing.length} people called ${fullName()} have a passport on this device today. Are you one of them?`;
-      const box = $('#sameActions');
-      box.replaceChildren();
-      for (const p of existing.slice(0, 4)) {
-        const n = Object.keys(p.stamps).length;
-        const b = el('button', 'cta-small', `Yes — I'm #${p.tag} · ${n}/${P.GAMES.length} stamps`);
-        b.type = 'button';
-        b.addEventListener('click', () => { sfx.tap(); finishSignin(fullName(), p.tag); });
-        box.append(b);
-      }
-      const no = el('button', 'ghost', `No — I'm a different ${fullName()}`);
-      no.type = 'button';
-      no.addEventListener('click', () => { sfx.tap(); finishSignin(fullName()); });
-      box.append(no);
-      setStep('same');
-      return;
-    }
-    finishSignin(fullName());
-  }
-  function finishSignin(name, tag) {
-    const c = P.signIn(name, tag);
+  function finishSignin(name, tag, remote) {
+    const c = P.signIn(name, tag, remote);
     sfx.stamp();
     const game = pendingGame;
     closeSignin();
@@ -391,7 +384,7 @@
     }
   }, 5000);
   // refresh champions periodically (other tabs / games update storage)
-  setInterval(renderAll, 30000);
+  setInterval(() => { renderAll(); syncMine(); }, 30000);
   if (window.Leaderboard) window.Leaderboard.onChange(renderAll);
 
   function buildBg() {
@@ -410,6 +403,7 @@
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg;
+    P.dimTag(t);
     t.hidden = false;
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.hidden = true; }, 3000);
@@ -419,9 +413,9 @@
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSignin();
-    if (e.key.length === 1 && /[a-z]/i.test(e.key) && !$('#signin').hidden) typeKey(e.key.toUpperCase());
+    if (e.key.length === 1 && /[a-z ]/i.test(e.key) && !$('#signin').hidden) { e.preventDefault(); typeKey(e.key.toUpperCase()); }
     if (e.key === 'Backspace' && !$('#signin').hidden) typeKey('DEL');
-    if (e.key === 'Enter' && !$('#signin').hidden) confirmName();
+    if (e.key === 'Enter' && !$('#signin').hidden && step === 'name') { e.preventDefault(); entry.confirm(); }
   });
 
   try { sessionStorage.setItem('ecosystemArcade.booth', '1'); } catch { /* ignore */ }

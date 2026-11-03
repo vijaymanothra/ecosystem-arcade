@@ -54,6 +54,30 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
   border-radius: 12px; background: rgba(255,77,109,.16); border: 2px solid var(--bad); color: #ffe3e8; }
 .warn-banner b { color: #fff; }
 
+/* how many played today */
+.players-card { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.players-label { font-size: 18px; font-weight: 800; }
+.players-card b { font-size: 34px; font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.players-card .more { padding-top: 0; }
+
+/* goodies: stock, players who have earned one, top scorers */
+.goodies-card { margin-top: 14px; }
+.goodies-card h2 { font-size: 18px; margin-bottom: 10px; }
+.goodies-card h3 { font-size: 15px; margin-top: 18px; }
+.goodies-card label { margin: 14px 0 6px; }
+.goodies-card input[type=search] { width: 100%; }
+.stock-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.stock { display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.stock .left { font-size: 20px; font-weight: 900; color: var(--good); }
+.stock.out .left { color: var(--bad); }
+.stock .of { color: var(--muted); font-size: 13px; }
+.stock input { width: 70px; padding: 2px 6px; flex: none; }
+.goodie-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); }
+.goodie-row b { color: var(--accent); min-width: 150px; }
+.goodie-row .passed, .goodie-row .swap { color: var(--muted); font-size: 13px; }
+.goodie-row .passed { flex: 1; }
+.goodie-row .given { color: var(--good); font-weight: 800; font-size: 14px; }
+
 /* today's Ecosystem Experts (all five games played), full names for prizes */
 .experts-card { margin-top: 14px; }
 .experts-card h2 { display: flex; align-items: baseline; gap: 10px; font-size: 18px; }

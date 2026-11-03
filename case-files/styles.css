@@ -338,3 +338,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (min-width: 641px) and (max-width: 1300px) {
   .drag-hint { left: 0; right: 0; margin: 0 auto; width: max-content; max-width: calc(100% - 24px); transform: none; white-space: normal; text-align: center; }
 }
+
+/* tablets held sideways: a long case's stamp stays fully on the page */
+@media (min-width: 641px) and (max-width: 1240px) and (min-height: 501px) and (orientation: landscape) {
+  .closed-stamp { bottom: 6vmin; }
+}

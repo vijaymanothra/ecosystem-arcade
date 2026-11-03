@@ -180,7 +180,7 @@
   function addScore(name, score, mastered, total) {
     const entry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name, score, mastered, total, day: today(),
+      name, score, mastered, total, pct: state.pct, day: today(),
     };
     return window.Leaderboard.add(LB_KEY, entry);
   }
@@ -200,7 +200,7 @@
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', e.name),
+        window.Passport.dimTag(el('span', 'name', e.name)),
         el('span', 'mastered', `🗺️ ${e.mastered}/${e.total}`),
         el('span', 'pts', e.score.toLocaleString()),
       );
@@ -578,7 +578,9 @@
     const allMastered = mastered === total;
     const bonus = allMastered ? CFG.masteryBonus : 0;
     state.finalScore = state.score + bonus;
-    if (window.Passport) window.Passport.stamp('master-the-map', state.finalScore);
+    const asked = total + state.steps.length; // the business questions and the journey steps
+    state.pct = asked ? Math.round((100 * (mastered + state.journeyCorrect)) / asked) : 0;
+    if (window.Passport) window.Passport.stamp('master-the-map', state.finalScore, state.pct);
 
     const title = $('#overTitle');
     title.textContent = allMastered ? 'MAP MASTERED!'
@@ -664,32 +666,11 @@
   }
 
   // ---------------------------------------------------------------- name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { state.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.tap();
-    if (ch === 'DEL') state.name = state.name.slice(0, -1);
-    else if (state.name.length < NAME_MAX) state.name += state.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = state.name;
-    $('#keys .ok').disabled = !state.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     state.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();

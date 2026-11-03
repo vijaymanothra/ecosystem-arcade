@@ -48,6 +48,17 @@
   let clockOffset = 0;     // server clock minus this device's clock
   const now = () => Date.now() + clockOffset;
 
+  // ---------------------------------------------------------------- welcome back
+  // Passports with exactly this name today, rebuilt by the server from their scores. Answers [] when the server is
+  // slow or unreachable, so nobody is ever stuck waiting at the name screen.
+  function lookup(name, waitMs = 8000) {
+    if (disabled) return Promise.resolve([]);
+    const asked = request(`/passports?day=${today()}&name=${encodeURIComponent(name)}`)
+      .then((r) => (Array.isArray(r.passports) ? r.passports : []))
+      .catch(() => []);
+    return Promise.race([asked, new Promise((resolve) => { setTimeout(() => resolve([]), waitMs); })]);
+  }
+
   // ---------------------------------------------------------------- public: local reads and writes
   function stored(key) {
     const v = read(key, []);
@@ -218,7 +229,7 @@
   }
   function onChange(fn) { window.addEventListener('arcade:scores', fn); }
 
-  window.Leaderboard = { load, add, clear, sync, status, onChange, isHidden, fullNames, experts, playersToday };
+  window.Leaderboard = { lookup, load, add, clear, sync, status, onChange, isHidden, fullNames, experts, playersToday };
 
   if (!disabled) {
     sync();

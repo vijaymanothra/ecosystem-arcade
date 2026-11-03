@@ -24,6 +24,14 @@
     { id: 'health-journey', name: 'The Health Journey', icon: '🎲', lb: 'healthJourney.leaderboard.v1', color: '#2e9d57' },
   ];
   const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g]));
+  // Goodies at the booth: a solo game counts as passed with at least PASS_PCT% of its answers right (best attempt
+  // counts). Keep in step with GOODIES in server/scores-core.js.
+  const PASS_PCT = 40;
+  const GOODIES = [
+    { id: 'chocolate', name: 'Chocolate', games: 3 },
+    { id: 'keychain', name: 'Keychain', games: 4 },
+    { id: 'phone-holder', name: 'Phone holder', games: 5 },
+  ];
 
   const today = () => {
     const d = new Date();
@@ -72,14 +80,44 @@
   // "Priya S." + "qw7" → "Priya S. #qw7"
   const withTag = (name, tag) => (tag ? `${name} #${tag}` : String(name || ''));
 
-  // Sign in to a passport. With a tag: continue that passport (from "is that you?"). Without: a new passport
-  // with a new tag, even when the name is already here today (that's a different person with the same name).
-  function signIn(name, tag) {
+  // What the server knows about a passport (from its scores) joins what this device knows: the best of each.
+  // Returns whether anything changed.
+  function mergeRemote(p, remote) {
+    const before = JSON.stringify([p.stamps, p.claims]);
+    for (const [id, g] of Object.entries((remote && remote.games) || {})) {
+      if (!GAME[id] || !g) continue;
+      const mine = p.stamps[id] || { score: 0, at: Date.now() };
+      const stamp1 = { ...mine, score: Math.max(mine.score || 0, g.score || 0) };
+      const pct = Math.max(mine.pct || 0, g.pct || 0);
+      if (pct) stamp1.pct = pct;
+      p.stamps[id] = stamp1;
+    }
+    if (remote && Array.isArray(remote.claims)) p.claims = remote.claims;
+    return JSON.stringify([p.stamps, p.claims]) !== before;
+  }
+  // Bring the signed-in passport up to date with the server; true if something changed.
+  function syncRemote(remote) {
+    const c = current();
+    if (!c) return false;
+    const all = dayBook();
+    const p = (all[today()] || {})[passportKey(c.name, c.tag)];
+    if (!p || !mergeRemote(p, remote)) return false;
+    write(KEY, all);
+    return true;
+  }
+  // Sign in to a passport. With a tag: continue that passport (from "is that you?"), bringing in `remote`, what
+  // the server has for it, when this device has lost it. Without: a new passport with a new tag, even when the
+  // name is already here today (that's a different person with the same name).
+  function signIn(name, tag, remote) {
     const clean = String(name || '').trim();
     if (!clean) return null;
     const all = dayBook();
     const day = all[today()] || (all[today()] = {});
     let k = tag ? passportKey(clean, tag) : null;
+    if (k && remote) {
+      if (!day[k]) day[k] = { name: clean, tag, stamps: {} };
+      mergeRemote(day[k], remote);
+    }
     if (!k || !day[k]) {
       const taken = new Set(Object.values(day).filter((p) => keyOf(p.name) === keyOf(clean)).map((p) => p.tag));
       const t = newTag(taken);
@@ -207,7 +245,8 @@
     return it;
   }
 
-  function stamp(gameId, score) {
+  // pct: the share of answers right in this game; left out for a multiplayer game, which can't count towards goodies
+  function stamp(gameId, score, pct) {
     const c = current();
     if (!c || !GAME[gameId]) return null;
     const all = dayBook();
@@ -216,13 +255,173 @@
     const p = day[k] || (day[k] = { name: c.name, tag: c.tag, stamps: {} });
     const prev = p.stamps[gameId];
     const isNew = !prev;
-    if (!prev || (score || 0) > prev.score) p.stamps[gameId] = { score: Math.round(score || 0), at: Date.now() };
+    const levelBefore = goodieStatus(p).earned;
+    const better = !prev || (score || 0) > prev.score;
+    const next = better ? { score: Math.round(score || 0), at: Date.now() } : { ...prev };
+    const best = Math.max((prev && prev.pct) || 0, Number.isFinite(pct) ? Math.round(pct) : 0);
+    if (best || Number.isFinite(pct) || (prev && Number.isFinite(prev.pct))) next.pct = best;
+    p.stamps[gameId] = next;
     write(KEY, all);
     touch();
     const count = Object.keys(p.stamps).length;
-    showStamp(gameId, withTag(c.name, c.tag), count, isNew);
+    showStamp(gameId, withTag(c.name, c.tag), count, isNew, p, pct);
     updateChip();
+    // a new goodie level: tell them once the stamp has had its moment
+    const st = goodieStatus(p);
+    if (st.earned && st.earned !== levelBefore && !st.collected) setTimeout(showGoodie, 2400);
     return { isNew, count, total: GAMES.length };
+  }
+
+  // ---------------------------------------------------------------- goodies
+  // Where a passport stands: games passed, the goodie earned, the next one up, and what was already collected.
+  function goodieStatus(p) {
+    const passed = p ? Object.values(p.stamps).filter((s) => (s.pct || 0) >= PASS_PCT).length : 0;
+    const earned = [...GOODIES].reverse().find((g) => passed >= g.games) || null;
+    const next = GOODIES.find((g) => passed < g.games) || null;
+    const claim = p && Array.isArray(p.claims) && p.claims[0];
+    const collected = claim ? (GOODIES.find((g) => g.id === claim.goodie) || null) : null;
+    return { passed, earned, next, collected };
+  }
+  function currentGoodie() {
+    const c = current();
+    return goodieStatus(c && player(c.name, c.tag));
+  }
+  // The card a player shows at the goodie desk.
+  function showGoodie() {
+    const c = current();
+    const st = currentGoodie();
+    if (!c || !st.earned || !document.body || document.querySelector('.eap-leave')) return;
+    injectStyles();
+    const wrap = document.createElement('div');
+    wrap.className = 'eap-leave eap-goodie';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-modal', 'true');
+    const box = document.createElement('div');
+    box.className = 'box';
+    const line = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; box.append(e); return e; };
+    line('div', 'ic', '🎁');
+    if (st.collected) {
+      line('h2', null, `${st.collected.name} collected`);
+      dimTag(line('p', 'who', `${withTag(c.name, c.tag)} · ${st.passed} of ${GAMES.length} games passed`));
+      line('p', null, 'Each player collects one goodie. Thanks for playing!');
+    } else {
+      line('h2', null, `You earned a ${st.earned.name.toUpperCase()}!`);
+      dimTag(line('p', 'who', `${withTag(c.name, c.tag)} · ${st.passed} of ${GAMES.length} games passed`));
+      if (st.next) {
+        const more = st.next.games - st.passed;
+        line('p', null, `Show this at the goodie desk to collect it, or pass ${more} more game${more === 1 ? '' : 's'} for a ${st.next.name.toLowerCase()}. Once you collect, you can't upgrade.`);
+      } else line('p', null, 'Show this at the goodie desk to collect it.');
+      line('p', 'small', 'While stocks last.');
+    }
+    const row = document.createElement('div');
+    row.className = 'row';
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'stay';
+    ok.textContent = 'Got it';
+    for (const type of ['pointerdown', 'click']) wrap.addEventListener(type, (e) => e.stopPropagation());
+    ok.addEventListener('click', () => wrap.remove());
+    row.append(ok);
+    box.append(row);
+    wrap.append(box);
+    document.body.append(wrap);
+    ok.focus();
+  }
+
+  // ---------------------------------------------------------------- passport tags, dimmed
+  // The name is what matters; the tag ("#qw7") is only there to tell namesakes apart, so it sits back, still readable.
+  // Takes an element showing text and returns it with any tag in that text dimmed.
+  function dimTag(node) {
+    if (!node) return node;
+    const parts = String(node.textContent).split(/( #[a-hjkmnp-z2-9]{3})(?![a-z0-9])/);
+    if (parts.length < 2) return node;
+    injectStyles();
+    node.replaceChildren(...parts.map((text, i) => {
+      if (i % 2 === 0) return text;
+      const tag = document.createElement('span');
+      tag.className = 'eap-tag';
+      tag.textContent = text;
+      return tag;
+    }));
+    return node;
+  }
+
+  // ---------------------------------------------------------------- typing a name
+  // People type their full name; only the first name and last initial are kept ("Priya Sharma" → "Priya S.").
+  const FULL_NAME_MAX = 32;
+  const SAVED_NAME_MAX = 20; // the API's limit
+  function shortName(typed) {
+    const words = String(typed || '').trim().split(/\s+/).filter(Boolean);
+    if (words.length < 2) return { name: '', problem: words.length ? 'last' : 'empty' };
+    const initial = Array.from(words[words.length - 1])[0].toUpperCase();
+    return { name: `${Array.from(words[0]).slice(0, SAVED_NAME_MAX - 3).join('')} ${initial}.`, problem: null };
+  }
+  // The on-screen QWERTY keyboard and the box above it. keys and box are empty elements; onDone gets "Priya S.".
+  function nameEntry({ keys, box, onDone, onKey }) {
+    injectStyles();
+    let typed = '';
+    const hint = document.createElement('div');
+    hint.className = 'eap-name-hint';
+    box.after(hint);
+    const text = document.createElement('span');
+    text.className = 'eap-typed';
+    const key = (cls, label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = cls;
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const type = (ch) => {
+      if (onKey) onKey();
+      if (ch === 'DEL') typed = typed.slice(0, -1);
+      else if (ch === ' ') { if (typed && !typed.endsWith(' ') && typed.length < FULL_NAME_MAX) typed += ' '; }
+      else if (typed.length < FULL_NAME_MAX) typed += !typed || typed.endsWith(' ') ? ch.toUpperCase() : ch.toLowerCase();
+      paint();
+    };
+    function paint(problem) {
+      if (text.parentElement !== box) box.replaceChildren(text);
+      // a long name shrinks to fit the box. The room is measured empty, as a long name would stretch the box and its sheet.
+      text.textContent = '';
+      const room = box.clientWidth - 40; // leaves space for the typing cursor
+      text.textContent = typed;
+      text.style.fontSize = '';
+      if (room > 0 && text.offsetWidth > room) text.style.fontSize = `${Math.max(0.35, room / text.offsetWidth)}em`;
+      const s = shortName(typed);
+      hint.classList.toggle('bad', Boolean(problem));
+      hint.textContent = problem ? 'Please enter your last name too'
+        : s.name ? `You'll appear as: ${s.name}`
+        : typed.trim() ? 'Now add your last name' : '';
+      const ok = keys.querySelector('.ok');
+      if (ok) ok.disabled = !typed.trim();
+    }
+    function confirm() {
+      const s = shortName(typed);
+      if (s.problem === 'empty') return;
+      if (s.problem) { paint(true); return; }
+      onDone(s.name);
+    }
+    keys.classList.add('eap-kbd');
+    keys.replaceChildren();
+    const rows = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'].map((letters) => {
+      const row = document.createElement('div');
+      row.className = 'eap-kbd-row';
+      for (const ch of letters) row.append(key('key', ch, () => type(ch)));
+      return row;
+    });
+    rows[2].append(key('key del', '⌫', () => type('DEL')));
+    const last = document.createElement('div');
+    last.className = 'eap-kbd-row';
+    last.append(key('key space', 'SPACE', () => type(' ')), key('key ok', 'OK', confirm));
+    keys.append(...rows, last);
+    paint();
+    return {
+      reset() { typed = ''; paint(); },
+      type,
+      confirm,
+      setHint(message) { hint.classList.remove('bad'); hint.textContent = message; },
+    };
   }
 
   // ---------------------------------------------------------------- champions (reads each game's leaderboard)
@@ -262,6 +461,23 @@
       .eap-home:active{transform:scale(.9)}
       @media (min-width:641px) and (max-width:1500px),(orientation:portrait) and (min-width:641px){.eap-has-bar header.brand{padding-inline:var(--eap-bar-w,0px)}}
       .eap-saved{flex-basis:100%;width:100%;margin:0 0 .6vmin;text-align:center;font:800 clamp(14px,2.4vmin,30px) "Segoe UI",system-ui,sans-serif;color:#2ee59d;text-shadow:0 2px 6px rgba(0,0,0,.45)}
+      .eap-tag{opacity:.55;font-weight:600;font-size:.82em}
+      .eap-typed{white-space:pre}
+      .eap-name-hint{min-height:1.4em;text-align:center;font:700 clamp(14px,2.4vmin,30px) "Segoe UI",system-ui,sans-serif;color:#2ee59d}
+      .eap-name-hint.bad{color:#ff8fa3;font-weight:900}
+      .keys.eap-kbd{display:flex;flex-direction:column;gap:clamp(4px,.9vmin,14px)}
+      .eap-kbd-row{display:flex;justify-content:center;gap:clamp(3px,.8vmin,12px);width:100%}
+      .eap-kbd-row .key{flex:1 1 0;min-width:0;padding:0}
+      .eap-kbd-row:nth-child(2){padding-inline:5%}
+      .eap-kbd-row .key.del{flex-grow:1.6}
+      .eap-kbd-row .key.space{flex-grow:6;font-size:.72em;letter-spacing:.14em}
+      .eap-kbd-row .key.ok{flex-grow:2.4}
+      @media (max-width:640px){.eap-kbd-row .key{height:44px;font-size:17px;border-radius:8px}}
+      @media (max-height:500px){.eap-kbd-row .key{height:clamp(26px,9.5vh,40px);font-size:15px;border-radius:7px}.eap-name-hint{font-size:13px}.keys.eap-kbd{gap:3px}}
+      .eap-goodie .who{font-weight:800;color:#fff;margin-bottom:10px}
+      .eap-goodie p.small{font-size:clamp(12px,1.8vmin,18px);margin-top:-12px;color:#b9b3e6}
+      .eap-stamp .n{margin-top:.8vmin;font-weight:800;font-size:clamp(12px,1.9vmin,50px);color:#12935a}
+      .eap-stamp .n.low{color:#b45309}
       .eap-stamp{position:fixed;left:50%;top:10vh;z-index:9999;transform:translateX(-50%);pointer-events:none;text-align:center;
         background:#fff8e6;color:#2b2118;border:8px double #d62828;border-radius:18px;padding:2.2vmin 4vmin;font-family:"Segoe UI",system-ui,sans-serif;
         box-shadow:0 18px 50px rgba(0,0,0,.5);animation:eapSlam .6s cubic-bezier(.3,1.6,.5,1) both}
@@ -298,11 +514,10 @@
     document.head.append(s);
   }
 
-  function showStamp(gameId, name, count, isNew) {
+  function showStamp(gameId, name, count, isNew, p, pct) {
     if (!document.body) return;
     injectStyles();
     const g = GAME[gameId];
-    const p = player(name);
     const box = document.createElement('div');
     box.className = 'eap-stamp';
     const t = document.createElement('div');
@@ -314,6 +529,7 @@
     const c = document.createElement('div');
     c.className = 'c';
     c.textContent = `${name} · ${count} / ${GAMES.length} games`;
+    dimTag(c);
     const row = document.createElement('div');
     row.className = 'row';
     for (const gg of GAMES) {
@@ -323,6 +539,12 @@
       row.append(s);
     }
     box.append(t, gEl, c, row);
+    // does this game count towards a goodie?
+    const note = document.createElement('div');
+    if (!Number.isFinite(pct)) { note.className = 'n low'; note.textContent = 'Only solo games count towards goodies'; }
+    else if (pct >= PASS_PCT) { note.className = 'n'; note.textContent = `✅ ${Math.round(pct)}% right: passed for goodies`; }
+    else { note.className = 'n low'; note.textContent = `${Math.round(pct)}% right: ${PASS_PCT}% counts towards goodies. Play again!`; }
+    box.append(note);
     if (count >= GAMES.length && isNew) {
       const x = document.createElement('div');
       x.className = 'x';
@@ -348,6 +570,7 @@
     const c = current();
     const p = c && player(c.name, c.tag);
     chip.textContent = c ? `📮 ${withTag(c.name, c.tag)} · ${p ? Object.keys(p.stamps).length : 0}/${GAMES.length}` : '📮';
+    dimTag(chip);
   }
 
   function isBooth() {
@@ -522,6 +745,7 @@
     }
     const c = current(); // the signed-in player's own score: name and passport tag ("Priya S. #qw7")
     note.textContent = `✅ Saved to the leaderboard as ${c && keyOf(name) === keyOf(c.name) ? withTag(c.name, c.tag) : name}`;
+    dimTag(note);
   }
 
   // ---------------------------------------------------------------- a name is required to play
@@ -549,7 +773,7 @@
     } catch { return null; }
   }
 
-  window.Passport = { GAMES, GAME, today, isPhone, current, signIn, signOut, touch, player, playersNamed, playersToday, currentName, currentTag, currentLabel, newTag, withTag, maskName, shownName, rememberMine, freshFirst, pickFresh, markSeen, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
+  window.Passport = { GOODIES, PASS_PCT, goodieStatus, currentGoodie, showGoodie, syncRemote, dimTag, shortName, nameEntry, GAMES, GAME, today, isPhone, current, signIn, signOut, touch, player, playersNamed, playersToday, currentName, currentTag, currentLabel, newTag, withTag, maskName, shownName, rememberMine, freshFirst, pickFresh, markSeen, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

@@ -193,7 +193,7 @@
     return score > 0 && (b.length < CFG.leaderboardSize || score > b[b.length - 1].score);
   }
   function addScore(name, score, built) {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, built, day: today() };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, built, pct: G.pct, day: today() };
     return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
@@ -208,7 +208,7 @@
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', `Mayor ${e.name}`),
+        window.Passport.dimTag(el('span', 'name', `Mayor ${e.name}`)),
         el('span', 'bl', `🏢 ${e.built}/${CITY_BIZ.length}`),
         el('span', 'pts', `👥 ${e.score.toLocaleString()}`),
       );
@@ -1080,7 +1080,8 @@
   }
 
   function showResults() {
-    if (window.Passport) window.Passport.stamp('evernorth-city', G.pop);
+    G.pct = G.permits ? Math.round((100 * G.approved) / G.permits) : 0; // permit questions answered right
+    if (window.Passport) window.Passport.stamp('evernorth-city', G.pop, G.pct);
     const built = CITY_BIZ.filter((b) => city.slots[b.id].level > 0).length;
     const landmarks = CITY_BIZ.filter((b) => city.slots[b.id].level >= 3).length;
     const [, rankName, rankIcon] = cityRank(G.pop);
@@ -1144,32 +1145,11 @@
   }
 
   // ================================================================ name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { G.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.tap();
-    if (ch === 'DEL') G.name = G.name.slice(0, -1);
-    else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = G.name;
-    $('#keys .ok').disabled = !G.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();

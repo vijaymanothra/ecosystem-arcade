@@ -1,6 +1,6 @@
 // ============================================================
-//  ARCADE ADMIN — leaderboard scores only: view, download, remove one entry, wipe a game or
-//  all games, hide / show leaderboards. The games themselves can't be changed from here.
+//  ARCADE ADMIN — leaderboard scores and goodies only: view, download, remove one entry, wipe a game
+//  or all games, hide / show leaderboards, hand over goodies. The games themselves can't be changed from here.
 //  The admin password is kept in memory only (never stored), and sent with each request in
 //  the X-Admin-Token header. The API checks it; 5 wrong tries pause this address for 15 minutes.
 // ============================================================
@@ -23,6 +23,7 @@
   let playedToday = 0; // players who played at least one game today
   let experts = []; // today's Ecosystem Experts (full names), e.g. for prizes
   let showFullNames = false; // leaderboards show players' full names instead of masked ones
+  let goodies = null; // today's goodies: stock, who has earned what, top scorers
   const data = {};              // game id → scores (best first)
 
   // ---------------------------------------------------------------- talking to the API
@@ -84,6 +85,7 @@
     playedToday = summary.players || 0;
     hiddenGames = summary.hiddenGames || [];
     showFullNames = Boolean((await api('GET', '/admin/settings')).showFullNames);
+    goodies = await api('GET', `/admin/goodies?day=${today}`);
     await Promise.all(GAMES.map(async (g) => { data[g.id] = (await api('GET', `/admin/scores?game=${g.id}`)).scores; }));
     render();
   }
@@ -177,6 +179,81 @@
     await act('Removing', async () => ((await api('DELETE', `/admin/scores?game=${game}&id=${encodeURIComponent(s.id)}`)).deleted ? `Removed "${who(s)}".` : 'That entry was already gone.'));
   }
 
+  // ---------------------------------------------------------------- goodies
+  const goodieName = (id) => (goodies.goodies.find((g) => g.id === id) || { name: id }).name;
+  async function give(p, via, game) {
+    await act('Saving', async () => {
+      const { claim } = await api('POST', '/admin/goodies', { day: goodies.day, name: p.name, tag: p.tag, via, game });
+      return `Give ${who(p)}: ${goodieName(claim.goodie)}. Saved.`;
+    });
+  }
+  async function undo(c) {
+    const sure = await confirmBox({ title: 'Undo this goodie?', text: `${who(c)} goes back to not having collected: ${goodieName(c.goodie)}. Only do this if it wasn't actually handed over.`, yes: 'Undo' });
+    if (!sure) return;
+    await act('Undoing', async () => ((await api('DELETE', `/admin/goodies?id=${encodeURIComponent(c.id)}`)).deleted ? `Undone for ${who(c)}.` : 'That was already undone.'));
+  }
+  async function setStock(id, value) {
+    const n = parseInt(value, 10);
+    if (!Number.isInteger(n) || n < 0) return render();
+    await act('Saving', async () => { await api('PUT', '/admin/settings', { goodieStock: { ...Object.fromEntries(Object.entries(goodies.stock).map(([k, v]) => [k, v.total])), [id]: n } }); return 'Stock updated.'; });
+  }
+  function renderGoodies() {
+    if (!goodies) return;
+    const stock = $('#goodieStock');
+    stock.replaceChildren();
+    for (const [id, label] of [['chocolate', '🍫 Chocolate'], ['keychain', '🔑 Keychain'], ['phone-holder', '📱 Phone holder'], ['top-phone-holder', '🏆 Reserved phone holder']]) {
+      const s = goodies.stock[id];
+      const box = el('div', `stock${s.left ? '' : ' out'}`);
+      const total = el('input');
+      total.type = 'number';
+      total.min = '0';
+      total.value = s.total;
+      total.setAttribute('aria-label', `${label} in stock`);
+      total.addEventListener('change', () => setStock(id, total.value));
+      const of = el('span', 'of', 'of ');
+      of.append(total);
+      box.append(el('b', null, label), el('span', 'left', `${s.left} left`), of);
+      stock.append(box);
+    }
+    const q = $('#goodieSearch').value.trim().toLowerCase().replace(/^#/, '');
+    const rows = goodies.players.filter((p) => !q || String(p.name).toLowerCase().includes(q) || String(p.tag || '').includes(q));
+    const list = $('#goodiePlayers');
+    list.replaceChildren();
+    if (!rows.length) list.append(el('p', 'empty', goodies.players.length ? 'No player found with that name or tag.' : `Nobody has passed 3 games (${goodies.passPct}%+) today yet.`));
+    for (const p of rows) {
+      const row = el('div', 'goodie-row');
+      row.append(el('b', null, who(p)), el('span', 'passed', `${p.passed}/${GAMES.length} passed`));
+      for (const c of p.claims) {
+        const tagged = el('span', 'given', `✔ ${goodieName(c.goodie)}${c.via === 'top' ? ' (top scorer)' : ''}`);
+        const u = el('button', 'btn small ghost', 'Undo');
+        u.addEventListener('click', () => undo(c));
+        row.append(tagged, u);
+      }
+      if (!p.claims.length) {
+        if (p.give) {
+          const b = el('button', 'btn small primary', `Give ${goodieName(p.give)}`);
+          b.addEventListener('click', () => give(p, 'games'));
+          row.append(b);
+          if (p.give !== p.earned) row.append(el('span', 'swap', `${goodieName(p.earned)} ran out`));
+        } else row.append(el('span', 'swap', 'Nothing left at this level: ask the booth lead'));
+      }
+      list.append(row);
+    }
+    const top = $('#goodieTop');
+    top.replaceChildren();
+    if (!goodies.top.length) top.append(el('p', 'empty', 'No one in line right now.'));
+    for (const t of goodies.top) {
+      const row = el('div', 'goodie-row');
+      row.append(el('b', null, who(t)), el('span', 'passed', `${nameOf(t.game)} · ${t.score.toLocaleString()}`));
+      const b = el('button', 'btn small primary', 'Give phone holder');
+      b.disabled = !goodies.stock['top-phone-holder'].left;
+      b.addEventListener('click', () => give(t, 'top', t.game));
+      row.append(b);
+      top.append(row);
+    }
+  }
+  $('#goodieSearch').addEventListener('input', renderGoodies);
+
   // ---------------------------------------------------------------- CSV
   function csv(rows) {
     const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
@@ -197,6 +274,8 @@
   // ---------------------------------------------------------------- screen
   const when = (at) => new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   function render() {
+    $('#playersToday').textContent = playedToday.toLocaleString();
+    renderGoodies();
     $('#fullBanner').hidden = !showFullNames;
     $('#fullNamesBtn').textContent = showFullNames ? '🔒 Hide full names' : '🔓 Show full names';
     // Ecosystem Experts: everyone with a score in all five games today, in the order they finished

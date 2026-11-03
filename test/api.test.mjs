@@ -158,7 +158,7 @@ describe('score rules (scores-core.js)', () => {
 
   test('pages on other websites may not send or wipe scores; JSON only; 25 scores per upload', async () => {
     const { createApi } = require('../server/scores-api.js');
-    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const store = { put: async () => true, top: async () => [], clear: async () => 0, updateClaims: async () => {} };
     const api = createApi({ store, adminToken: 'secret-token-1234567', allowedOrigins: ['https://arcade.example'], log: { error() {} } });
     const post = (headers, n = 1) => api({ method: 'POST', path: '/api/scores', query: {}, ip: '9.9.9.9',
       headers: { 'content-type': 'application/json', ...headers },
@@ -175,7 +175,7 @@ describe('score rules (scores-core.js)', () => {
 
   test('wrong admin passwords: after 5 that address is paused (15 minutes); others are not', async () => {
     const { createApi } = require('../server/scores-api.js');
-    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const store = { put: async () => true, top: async () => [], clear: async () => 0, updateClaims: async () => {} };
     const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
     const del = (token, ip) => api({ method: 'DELETE', path: '/api/scores', query: {}, ip, headers: { 'x-admin-token': token } });
     for (let i = 0; i < 5; i++) assert.equal((await del('guess', '6.6.6.6')).status, 401);
@@ -186,7 +186,7 @@ describe('score rules (scores-core.js)', () => {
 
   test('admin token: X-Admin-Token or Authorization: Bearer, must match exactly', async () => {
     const { createApi } = require('../server/scores-api.js');
-    const store = { put: async () => true, top: async () => [], clear: async () => 0 };
+    const store = { put: async () => true, top: async () => [], clear: async () => 0, updateClaims: async () => {} };
     const api = createApi({ store, adminToken: 'secret-token-1234567', log: { error() {} } });
     const del = (headers) => api({ method: 'DELETE', path: '/api/scores', query: {}, headers });
     assert.equal((await del({ 'x-admin-token': 'secret-token-1234567' })).status, 200);
