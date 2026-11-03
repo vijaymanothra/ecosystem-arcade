@@ -51,9 +51,12 @@
   // ---------------------------------------------------------------- welcome back
   // Passports with exactly this name today, rebuilt by the server from their scores. Answers [] when the server is
   // slow or unreachable, so nobody is ever stuck waiting at the name screen.
-  function lookup(name, waitMs = 8000) {
+  // By the saved name, or, with fullName (signing in), by first and last name. That one travels in the body, out of web logs.
+  function lookup(name, waitMs = 8000, fullName) {
     if (disabled) return Promise.resolve([]);
-    const asked = request(`/passports?day=${today()}&name=${encodeURIComponent(name)}`)
+    const asked = (fullName
+      ? request('/passports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fullName, day: today() }) })
+      : request(`/passports?day=${today()}&name=${encodeURIComponent(name)}`))
       .then((r) => (Array.isArray(r.passports) ? r.passports : []))
       .catch(() => []);
     return Promise.race([asked, new Promise((resolve) => { setTimeout(() => resolve([]), waitMs); })]);
@@ -110,7 +113,9 @@
     const game = gameByKey[key];
     if (!disabled && game) {
       const q = read(QUEUE, []);
-      q.push({ game, ...entry });
+      // the full name goes to the server only: this device's copy of the board has just the saved name
+      const fullName = P && P.fullNameFor ? P.fullNameFor(entry.name) : undefined;
+      q.push({ game, ...entry, ...(fullName ? { fullName } : {}) });
       write(QUEUE, q);
       sync();
     }

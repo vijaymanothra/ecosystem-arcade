@@ -290,7 +290,7 @@
     setTimeout(() => { location.href = `${id}/index.html?booth=1`; }, 450);
   }
 
-  // Signing in takes the full name, kept only as "Priya S.". If that name already has a passport today, on this
+  // Signing in takes the full name; leaderboards show it as "Priya S.". If that person already has a passport today, on this
   // device or (from its scores) on the server, ask before joining it: scanning the QR code again can open a fresh
   // browser that has forgotten the player, and they should get their stamps back, not a second passport.
   let entry = null;
@@ -317,40 +317,42 @@
     entry = P.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: sfx.tap, onDone: confirmName });
   }
   function typeKey(ch) { if (step === 'name') entry.type(ch); }
-  async function confirmName(name) {
+  async function confirmName(name, fullName) {
     const run = ++signinRun;
     setStep('checking');
     entry.setHint(`You'll appear as: ${name}`);
-    const remote = window.Leaderboard && window.Leaderboard.lookup ? await window.Leaderboard.lookup(name, LOOKUP_WAIT_MS) : [];
+    const remote = window.Leaderboard && window.Leaderboard.lookup ? await window.Leaderboard.lookup(name, LOOKUP_WAIT_MS, fullName) : [];
     if (run !== signinRun) return; // cancelled meanwhile
     // this device's passports and the server's, one entry per tag
-    const found = new Map(P.playersNamed(name).map((p) => [p.tag, { tag: p.tag, stamps: new Set(Object.keys(p.stamps)) }]));
+    const same = (p) => !p.fullName || P.fullNameKey(p.fullName) === P.fullNameKey(fullName); // Priya Singh isn't asked about Priya Sharma
+    const found = new Map(P.playersNamed(name).filter(same).map((p) => [p.tag, { tag: p.tag, fullName: p.fullName, stamps: new Set(Object.keys(p.stamps)) }]));
     for (const r of remote) {
       const f = found.get(r.tag) || { tag: r.tag, stamps: new Set() };
       for (const id of Object.keys(r.games || {})) f.stamps.add(id);
       f.remote = r;
+      if (r.fullName) f.fullName = r.fullName;
       found.set(r.tag, f);
     }
-    if (!found.size) { finishSignin(name); return; }
+    if (!found.size) { finishSignin(name, null, null, fullName); return; }
     $('#sameText').textContent = found.size === 1
-      ? `We found a passport for ${name} today. Is that you?`
-      : `We found ${found.size} passports for ${name} today. Is one of them you?`;
+      ? `We found a passport for ${[...found.values()][0].fullName || name} today. Is that you?`
+      : `We found ${found.size} passports for ${fullName} today. Is one of them you?`;
     const box = $('#sameActions');
     box.replaceChildren();
     for (const f of [...found.values()].slice(0, 4)) {
       const b = el('button', 'cta-small', `Yes — I'm #${f.tag} · ${f.stamps.size}/${P.GAMES.length} stamps`);
       b.type = 'button';
-      b.addEventListener('click', () => { sfx.tap(); finishSignin(name, f.tag, f.remote); });
+      b.addEventListener('click', () => { sfx.tap(); finishSignin(name, f.tag, f.remote, fullName); });
       box.append(b);
     }
     const no = el('button', 'ghost', "No — I'm someone else");
     no.type = 'button';
-    no.addEventListener('click', () => { sfx.tap(); finishSignin(name); });
+    no.addEventListener('click', () => { sfx.tap(); finishSignin(name, null, null, fullName); });
     box.append(no);
     setStep('same');
   }
-  function finishSignin(name, tag, remote) {
-    const c = P.signIn(name, tag, remote);
+  function finishSignin(name, tag, remote, fullName) {
+    const c = P.signIn(name, tag, remote, fullName);
     sfx.stamp();
     const game = pendingGame;
     closeSignin();

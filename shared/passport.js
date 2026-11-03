@@ -108,7 +108,7 @@
   // Sign in to a passport. With a tag: continue that passport (from "is that you?"), bringing in `remote`, what
   // the server has for it, when this device has lost it. Without: a new passport with a new tag, even when the
   // name is already here today (that's a different person with the same name).
-  function signIn(name, tag, remote) {
+  function signIn(name, tag, remote, fullName) {
     const clean = String(name || '').trim();
     if (!clean) return null;
     const all = dayBook();
@@ -124,8 +124,11 @@
       k = passportKey(clean, t);
       day[k] = { name: clean, tag: t, stamps: {} };
     }
+    // the name already on a passport stays; a passport from before full names were kept takes the one just typed
+    const full = (remote && remote.fullName) || day[k].fullName || fullName;
+    if (full) day[k].fullName = full;
     write(KEY, all);
-    const c = { name: day[k].name, tag: day[k].tag, day: today(), at: Date.now() };
+    const c = { name: day[k].name, tag: day[k].tag, fullName: full, day: today(), at: Date.now() };
     write(CUR, c);
     return c;
   }
@@ -357,6 +360,20 @@
     return { name: `${Array.from(words[0]).slice(0, SAVED_NAME_MAX - 3).join('')} ${initial}.`, problem: null };
   }
   // The on-screen QWERTY keyboard and the box above it. keys and box are empty elements; onDone gets "Priya S.".
+  // the same person: first and last word match, whatever is in between. Keep in step with fullNameKey() in server/scores-core.js.
+  function fullNameKey(full) {
+    const words = String(full || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return words.length < 2 ? '' : `${words[0]} ${words[words.length - 1]}`;
+  }
+  // The full name behind a saved name, for the score sent to the server (leaderboards only ever show the saved name):
+  // the signed-in player's, or the one just typed on a game's own name screen.
+  let lastTyped = null;
+  function fullNameFor(name) {
+    const c = current();
+    const low = String(name || '').toLowerCase();
+    if (c && c.fullName && String(c.name).toLowerCase() === low) return c.fullName;
+    return lastTyped && lastTyped.name.toLowerCase() === low ? lastTyped.full : undefined;
+  }
   function nameEntry({ keys, box, onDone, onKey }) {
     injectStyles();
     let typed = '';
@@ -392,7 +409,9 @@
       hint.classList.toggle('bad', Boolean(problem));
       hint.textContent = problem ? 'Please enter your last name too'
         : s.name ? `You'll appear as: ${s.name}`
-        : typed.trim() ? 'Now add your last name' : '';
+        : typed.endsWith(' ') ? 'Now add your last name'
+        : typed ? 'Now tap SPACE and add your last name'
+        : 'First name, space, last name. Like: Priya Sharma';
       const ok = keys.querySelector('.ok');
       if (ok) ok.disabled = !typed.trim();
     }
@@ -400,7 +419,8 @@
       const s = shortName(typed);
       if (s.problem === 'empty') return;
       if (s.problem) { paint(true); return; }
-      onDone(s.name);
+      lastTyped = { name: s.name, full: typed.trim() };
+      onDone(s.name, lastTyped.full);
     }
     keys.classList.add('eap-kbd');
     keys.replaceChildren();
@@ -773,7 +793,7 @@
     } catch { return null; }
   }
 
-  window.Passport = { GOODIES, PASS_PCT, goodieStatus, currentGoodie, showGoodie, syncRemote, dimTag, shortName, nameEntry, GAMES, GAME, today, isPhone, current, signIn, signOut, touch, player, playersNamed, playersToday, currentName, currentTag, currentLabel, newTag, withTag, maskName, shownName, rememberMine, freshFirst, pickFresh, markSeen, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
+  window.Passport = { fullNameKey, fullNameFor, GOODIES, PASS_PCT, goodieStatus, currentGoodie, showGoodie, syncRemote, dimTag, shortName, nameEntry, GAMES, GAME, today, isPhone, current, signIn, signOut, touch, player, playersNamed, playersToday, currentName, currentTag, currentLabel, newTag, withTag, maskName, shownName, rememberMine, freshFirst, pickFresh, markSeen, stamp, podium, champions, paused, setLeaveGuard, mount, takePendingGame, savedNote };
 
   const script = document.currentScript;
   const gameId = script && script.dataset.game;

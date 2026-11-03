@@ -134,7 +134,7 @@
     });
   }
   const nameOf = (id) => (GAMES.find((g) => g.id === id) || { name: id }).name;
-  const who = (s) => (s.tag ? `${s.name} #${s.tag}` : s.name); // full name and passport tag
+  const who = (s) => (s.tag ? `${s.fullName || s.name} #${s.tag}` : s.fullName || s.name); // full name and passport tag
 
   $('#hideAllBtn').addEventListener('click', () => setHidden(GAMES.map((g) => g.id)));
   $('#showAllBtn').addEventListener('click', () => setHidden([]));
@@ -216,7 +216,7 @@
       stock.append(box);
     }
     const q = $('#goodieSearch').value.trim().toLowerCase().replace(/^#/, '');
-    const rows = goodies.players.filter((p) => !q || String(p.name).toLowerCase().includes(q) || String(p.tag || '').includes(q));
+    const rows = goodies.players.filter((p) => !q || String(p.name).toLowerCase().includes(q) || String(p.fullName || '').toLowerCase().includes(q) || String(p.tag || '').includes(q));
     const list = $('#goodiePlayers');
     list.replaceChildren();
     if (!rows.length) list.append(el('p', 'empty', goodies.players.length ? 'No player found with that name or tag.' : `Nobody has passed 3 games (${goodies.passPct}%+) today yet.`));
@@ -257,7 +257,7 @@
   // ---------------------------------------------------------------- CSV
   function csv(rows) {
     const cell = (v) => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-    return [['game', 'name', 'tag', 'score', 'day', 'saved_at', 'id'], ...rows].map((r) => r.map(cell).join(',')).join('\n') + '\n';
+    return [['game', 'name', 'full_name', 'tag', 'score', 'day', 'saved_at', 'id'], ...rows].map((r) => r.map(cell).join(',')).join('\n') + '\n';
   }
   function download(name, text) {
     const a = el('a');
@@ -267,7 +267,7 @@
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
-  const rowsOf = (game) => data[game].map((s) => [game, s.name, s.tag || '', s.score, s.day, new Date(s.at).toISOString(), s.id]);
+  const rowsOf = (game) => data[game].map((s) => [game, s.name, s.fullName || '', s.tag || '', s.score, s.day, new Date(s.at).toISOString(), s.id]);
   const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   $('#csvAllBtn').addEventListener('click', () => download(`arcade-scores-${stamp()}.csv`, csv(GAMES.flatMap((g) => rowsOf(g.id)))));
 

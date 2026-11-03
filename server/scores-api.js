@@ -24,6 +24,7 @@
 //           games whose leaderboard staff have hidden are left out and listed in `hidden`
 //    GET    /api/passports?day=YYYY-MM-DD&name=Priya%20S.  → { passports: [{ tag, games: { <id>: { score, pct } }, claims }] }
 //           the "welcome back" lookup: passports with exactly this name, rebuilt from that day's scores
+//    POST   /api/passports  { fullName, day } → { passports: [{ tag, fullName, games, claims }] }   sign in: same first and last name only
 //    POST   /api/scores  { scores: [{ id, game, name, score, day, at, ...details }] }
 //           → { accepted: [ids], rejected: [ids] }   (sending the same id twice stores it once)
 //
@@ -122,6 +123,7 @@ function createApi({
         const tag = (s.details && s.details.tag) || '';
         const k = personKey(s.name, tag);
         const p = book.get(k) || { name: s.name, tag, games: {} };
+        if (!p.fullName && s.details && s.details.fullName) p.fullName = s.details.fullName;
         const g = p.games[GAME_IDS[gi]] || (p.games[GAME_IDS[gi]] = { score: s.score, pct: 0 });
         g.score = Math.max(g.score, s.score);
         const pct = s.details && s.details.pct;
@@ -162,7 +164,7 @@ function createApi({
         const k = personKey(s.name, tag);
         if (holders.has(k) || picked.has(k)) continue;
         picked.add(k);
-        out.push({ game, name: s.name, tag: tag || undefined, score: s.score });
+        out.push({ game, name: s.name, fullName: s.details && s.details.fullName, tag: tag || undefined, score: s.score });
         n++;
       }
     }
@@ -248,6 +250,31 @@ function createApi({
         return json(200, { passports });
       }
 
+      // sign in: the passports of whoever typed this full name. Sent in the body so it stays out of web logs, and it
+      // returns only the same first and last name, so typing a name never reveals someone else's.
+      // A passport from before full names were kept has only "Priya S." to go on.
+      if (req.path === '/api/passports' && req.method === 'POST') {
+        if (!core.originAllowed(headers.origin, allowedOrigins)) return json(403, { error: 'this site may not look up passports' });
+        if (lookups(ip)) return json(429, { error: 'too many lookups, slow down' });
+        if (!/^application\/json\b/i.test(headers['content-type'] || '')) return json(415, { error: 'send JSON (Content-Type: application/json)' });
+        let body;
+        try { body = JSON.parse(req.body || ''); } catch { return json(400, { error: 'invalid JSON' }); }
+        const wantedKey = core.fullNameKey(body && body.fullName);
+        if (!wantedKey) return json(400, { error: 'give the full name to look up' });
+        const short = core.shortOfFull(body.fullName).toLowerCase();
+        const day = core.parseDay(body.day);
+        const claims = (await store.getClaims()).filter((c) => c.day === day);
+        const passports = [...(await passportsOn(day)).values()]
+          .filter((p) => p.tag && (p.fullName ? core.fullNameKey(p.fullName) === wantedKey : String(p.name).toLowerCase() === short))
+          .map((p) => ({
+            tag: p.tag,
+            fullName: p.fullName,
+            games: p.games,
+            claims: claims.filter((c) => personKey(c.name, c.tag) === personKey(p.name, p.tag)).map((c) => ({ goodie: c.goodie, via: c.via })),
+          }));
+        return json(200, { passports });
+      }
+
       if (req.path === '/api/scores' && req.method === 'POST') {
         // pages on other websites may not send scores
         if (!core.originAllowed(headers.origin, allowedOrigins)) return json(403, { error: 'this site may not send scores' });
@@ -305,7 +332,7 @@ function createApi({
           return json(200, { games, hiddenGames, ...(await playersOn(core.parseDay(query.day))) });
         }
         if (!knownGame(query.game)) return json(400, { error: 'unknown game' });
-        const scores = (await store.list(query.game)).sort(core.byRank).map(core.toPublic);
+        const scores = (await store.list(query.game)).sort(core.byRank).map(core.toAdmin);
         return json(200, { game: query.game, hidden: hiddenGames.includes(query.game), scores });
       }
 
@@ -331,7 +358,7 @@ function createApi({
             const mine = claims.filter((c) => personKey(c.name, c.tag) === personKey(p.name, p.tag));
             const earned = earnedGoodie(passed);
             const give = mine.some((c) => c.via === 'games') ? null : goodieToGive(passed, stock);
-            return { name: p.name, tag: p.tag || undefined, passed, games: p.games, earned: earned && earned.id, give: give && give.id, claims: mine };
+            return { name: p.name, fullName: p.fullName, tag: p.tag || undefined, passed, games: p.games, earned: earned && earned.id, give: give && give.id, claims: mine };
           })
           .filter((p) => p.earned || p.claims.length)
           .sort((a, b) => b.passed - a.passed || String(a.name).localeCompare(String(b.name)));

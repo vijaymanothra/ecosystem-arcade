@@ -47,7 +47,7 @@ const MAX_LIMIT = 100;          // scores per game per list
 const POSTS_PER_MINUTE = 300;
 const DETAILS_MAX = 8;          // extra per-game fields kept with a score (accuracy, rank, …)
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at', 'tag']);
+const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at', 'tag', 'fullName']);
 // A player's passport tag ("qw7", shown as "#qw7"): three random characters that tell two people with the
 // same name apart on every screen. Lowercase letters and digits without look-alikes (0/o, 1/l/i). It identifies
 // nobody, so it is shown unmasked. Keep in step with TAG_CHARS in shared/passport.js.
@@ -114,6 +114,22 @@ function maskName(name) {
   return [masked, ...rest].join(' ');
 }
 
+// A player's full name is private: kept with their scores for staff and "is this you?", never in a public list.
+// Keep shortOfFull in step with shortName() in shared/passport.js.
+const FULL_NAME_MAX = 32;
+const cleanFullName = (v) => (typeof v === 'string'
+  ? v.normalize('NFC').replace(/\p{C}/gu, '').replace(/\s+/g, ' ').trim().slice(0, FULL_NAME_MAX).trim() : '');
+function shortOfFull(full) {
+  const words = cleanFullName(full).split(' ').filter(Boolean);
+  if (words.length < 2) return '';
+  return `${Array.from(words[0]).slice(0, NAME_MAX - 3).join('')} ${Array.from(words[words.length - 1])[0].toUpperCase()}.`;
+}
+// the same person: first and last word match, whatever is in between
+function fullNameKey(full) {
+  const words = cleanFullName(full).toLowerCase().split(' ').filter(Boolean);
+  return words.length < 2 ? '' : `${words[0]} ${words[words.length - 1]}`;
+}
+
 // Returns a clean score ready to store, or null if it isn't acceptable.
 function cleanScore(e, now, isBlocked) {
   if (!e || typeof e !== 'object') return null;
@@ -145,11 +161,19 @@ function cleanScore(e, now, isBlocked) {
     }
   }
   if (tag) details.tag = tag;
+  // a full name that doesn't fit the saved name, or is blocked, is left off: the score still counts
+  const fullName = cleanFullName(e.fullName);
+  if (fullName && shortOfFull(fullName).toLowerCase() === name.toLowerCase() && !(isBlocked && isBlocked(fullName))) details.fullName = fullName;
   return { id, game, name, score, day, at, details };
 }
 
 // The shape every client receives.
-const toPublic = (s) => ({ ...s.details, id: s.id, game: s.game, name: s.name, score: s.score, day: s.day, at: s.at });
+const toPublic = (s) => {
+  const { fullName, ...details } = s.details; // private: see toAdmin
+  return { ...details, id: s.id, game: s.game, name: s.name, score: s.score, day: s.day, at: s.at };
+};
+// The shape the password-protected admin page receives.
+const toAdmin = (s) => ({ ...toPublic(s), fullName: s.details && s.details.fullName });
 
 // Highest score first; on a tie, whoever got there first.
 const byRank = (a, b) => (b.score - a.score) || (a.at - b.at);
@@ -210,6 +234,6 @@ const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).fil
 
 module.exports = {
   GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
-  PASS_PCT, GOODIES, TOP_PRIZE, TAG_RE, loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
+  PASS_PCT, GOODIES, TOP_PRIZE, TAG_RE, FULL_NAME_MAX, cleanFullName, shortOfFull, fullNameKey, loadNameFilter, cleanScore, toPublic, toAdmin, maskName, byRank, localToday, parseDay, parseLimit,
   createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

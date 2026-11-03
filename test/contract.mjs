@@ -46,6 +46,42 @@ export function apiContract(name, start) {
         assert.equal((await fetch(`${base}/api/passports?day=${today}`)).status, 400);
       });
 
+      test('a full name is kept for staff and sign in, and never leaves in a public response', async () => {
+        await wipe();
+        const find = async (fullName) => (await (await fetch(`${base}/api/passports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fullName, day: today }) })).json()).passports;
+        await post([
+          S('f1', { name: 'Meera N.', tag: 'mn2', fullName: 'Meera Nair', pct: 90 }),
+          S('f2', { name: 'Meera N.', tag: 'mn3', fullName: 'Meera Nambiar' }),
+          S('f3', { name: 'Old N.', tag: 'ad2' }),
+          S('f4', { name: 'Sam T.', tag: 'st2', fullName: 'Someone Else' }),
+          S('f5', { name: 'Bad F.', tag: 'bf2', fullName: 12345 }),
+        ]);
+        // public responses
+        for (const url of [`/api/scores?day=${today}&limit=50`, `/api/passports?day=${today}&name=${encodeURIComponent('Meera N.')}`]) {
+          const text = await (await fetch(base + url)).text();
+          assert.ok(!/nair|nambiar|"fullName"/i.test(text), `${url} has no full name: ${text}`);
+        }
+        assert.ok(!/Someone Else/.test(await (await fetch(`${base}/api/scores?day=${today}&limit=50`)).text()));
+        // staff see it, on the password-protected page only
+        const rows = (await (await adm('GET', '/admin/scores?game=route-rush')).json()).scores;
+        assert.equal(rows.find((s) => s.id === 'f1').fullName, 'Meera Nair');
+        assert.equal(rows.find((s) => s.id === 'f4').fullName, undefined, 'a full name that does not fit the saved name is left off');
+        assert.equal(rows.find((s) => s.id === 'f5').fullName, undefined, 'only text is kept');
+        assert.equal(rows.find((s) => s.id === 'f4').score, 100, 'the score itself still counts');
+        // sign in: the same first and last name only, so a namesake's full name is never revealed
+        assert.deepEqual((await find('meera nair')).map((p) => [p.tag, p.fullName]), [['mn2', 'Meera Nair']]);
+        assert.deepEqual((await find('Meera Devi Nair')).map((p) => p.tag), ['mn2'], 'a middle name still finds them');
+        assert.equal((await find('Meera Nair'))[0].games['route-rush'].pct, 90);
+        assert.deepEqual((await find('Meera Nambiar')).map((p) => p.tag), ['mn3']);
+        assert.ok(!(await find('Meera Nolan')).some((p) => p.fullName), 'a different last name with the same initial learns no full name');
+        assert.deepEqual((await find('Old Newman')).map((p) => [p.tag, p.fullName]), [['ad2', undefined]], 'a passport from before full names matches on the short name');
+        const bad = await fetch(`${base}/api/passports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fullName: 'Meera' }) });
+        assert.equal(bad.status, 400);
+        // a wipe removes the full names with the scores
+        await wipe();
+        assert.deepEqual((await (await adm('GET', '/admin/scores?game=route-rush')).json()).scores, []);
+      });
+
       test('the best attempt counts, and below 40% does not pass', async () => {
         await wipe();
         await post([S('b1', { game: 'case-files', name: 'Bo T.', tag: 'bbb', pct: 39 }), S('b2', { game: 'evernorth-city', name: 'Bo T.', tag: 'bbb', pct: 39 }), S('b3', { game: 'route-rush', name: 'Bo T.', tag: 'bbb', pct: 39 })]);
