@@ -8,6 +8,7 @@ window.EC_CONFIG = {
   tagline: 'Become mayor. Build a healthier city.',
   turns: 10,              // days (one build per day)
   newsEvery: 3,           // a city news event after every N days
+  forecastDays: 1,        // the news is forecast this many days ahead, so the player can build for it
   questionTime: 15,       // seconds per permit question
   factSec: 5,             // permit result auto-continues after this
   levelPop: [1000, 1500, 2500], // population gained for building level 1 / 2 / 3
@@ -59,30 +60,39 @@ window.EC_ROLES = {
 // City news: if ANY business in `needs` is built, the city is ready (good outcome).
 window.EC_EVENTS = [
   { icon: '🤒', needs: ['mdlive'], headline: 'FLU SEASON HITS THE CITY!',
+    need: 'Lots of people will need to see a doctor quickly, even at night.',
     good: 'Citizens saw doctors by video, 24/7, with MDLIVE — no crowded waiting rooms.',
     bad: 'Without virtual care, waiting rooms overflowed.', tip: 'MDLIVE offers 24/7 virtual urgent care.' },
   { icon: '👶', needs: ['freedom', 'vfp'], headline: 'BABY BOOM IN EVERNORTH!',
+    need: 'Families will need support with their fertility treatment.',
     good: 'Fertility pharmacies supported families with medications, training videos and 24/7 specialists.',
     bad: 'Families had to leave the city for fertility support.', tip: 'Freedom Fertility & Village Fertility serve fertility patients.' },
   { icon: '🏢', needs: ['cigna'], headline: 'BIG EMPLOYER MOVES TO TOWN!',
+    need: 'Hundreds of new employees will need health coverage.',
     good: 'Cigna Healthcare covered the new employees with medical and dental plans.',
     bad: 'The employer couldn\'t find health plans for its people.', tip: 'Cigna Healthcare provides employer health coverage.' },
   { icon: '🏥', needs: ['curascript'], headline: 'HOSPITAL RUNS LOW ON INFUSIONS',
+    need: 'The hospital will need its specialty medications restocked fast.',
     good: 'CuraScript SD restocked the hospital\'s specialty drugs fast.',
     bad: 'Treatments were delayed without a specialty distributor.', tip: 'CuraScript SD distributes specialty drugs to hospitals & clinics.' },
   { icon: '🧬', needs: ['accredo'], headline: 'RARE DISEASE CASES RISE',
+    need: 'Patients will need complex specialty medications.',
     good: 'Accredo delivered complex specialty medications with care at every step.',
     bad: 'Patients struggled to get complex specialty therapies.', tip: 'Accredo specializes in complex & rare conditions.' },
   { icon: '💉', needs: ['enguide'], headline: 'GLP-1 PRESCRIPTIONS SURGE',
+    need: 'People starting GLP-1 medications will need guidance and delivery.',
     good: 'EnGuide pharmacists guided members to the right dose — with home delivery.',
     bad: 'Members had no dedicated GLP-1 support.', tip: 'EnGuide is Evernorth\'s GLP-1 home delivery pharmacy.' },
   { icon: '🧠', needs: ['ebcg', 'mdlive'], headline: 'STRESS SEASON AT WORK',
+    need: 'Citizens will need a therapist to talk to.',
     good: 'Therapists helped citizens in person and by video.',
     bad: 'Citizens had nowhere to turn for therapy.', tip: 'Behavioral Care Group and MDLIVE both offer therapy.' },
   { icon: '📋', needs: ['evicore'], headline: 'MRI REQUESTS PILE UP',
+    need: 'Imaging orders will need their prior authorizations reviewed.',
     good: 'EviCore reviewed prior authorizations quickly with evidence-based guidelines.',
     bad: 'Imaging requests stalled in paperwork.', tip: 'EviCore manages prior authorization for health plans.' },
   { icon: '💊', needs: ['express'], headline: 'PRESCRIPTION COSTS SOAR',
+    need: 'The city will need someone to manage its pharmacy benefits.',
     good: 'Express Scripts managed pharmacy benefits and mailed refills to homes.',
     bad: 'Nobody was managing the city\'s pharmacy benefits.', tip: 'Express Scripts is the pharmacy benefit manager (PBM).' },
 ];

@@ -5,7 +5,11 @@
   "description": "Five touchscreen games with shared leaderboards",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.mjs",
+    "azure:preview": "node azure/deploy.mjs --preview",
+    "azure:deploy": "node azure/deploy.mjs",
+    "azure:export": "node azure/export.mjs",
+    "azure:remove": "node azure/remove.mjs"
   },
   "engines": {
     "node": ">=22.13"

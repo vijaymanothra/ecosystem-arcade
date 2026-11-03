@@ -32,7 +32,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .bg span { position: absolute; bottom: -15vmin; opacity: .1; animation: driftUp linear infinite; filter: grayscale(.3); }
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 /* ---------- brand ---------- */
 .brand { text-align: center; }
@@ -74,11 +74,11 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .tile .tt { font-size: clamp(12px, 2vmin, 24px); font-weight: 600; opacity: .95; line-height: 1.25; }
 .tile .chips { display: flex; flex-wrap: wrap; gap: .6vmin; margin-top: auto; }
 .tile .chips span { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 800; padding: .3vmin 1.2vmin; border-radius: 999px; background: rgba(0,0,0,.28); }
-.tile .best { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 700; opacity: .9; min-height: 1.3em; }
+.tile .best { font-size: clamp(10px, 1.7vmin, 20px); font-weight: 700; opacity: .9; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* one line, so PLAY keeps its place */
 .tile .play { align-self: stretch; text-align: center; font-size: clamp(16px, 3vmin, 38px); font-weight: 900; letter-spacing: .08em; padding: 1vmin; border-radius: 999px; background: #fff; color: var(--c2); box-shadow: 0 .6vmin 0 rgba(0,0,0,.3); }
 .tile .new { position: absolute; top: 1.4vmin; right: 1.4vmin; font-size: clamp(10px, 1.6vmin, 18px); font-weight: 900; letter-spacing: .1em; padding: .3vmin 1.2vmin; border-radius: 999px; background: var(--accent); color: #1a1240; }
 .tile .stamped {
-  position: absolute; top: 4vmin; right: -1vmin; transform: rotate(12deg); font-size: clamp(11px, 1.9vmin, 22px); font-weight: 900; letter-spacing: .12em;
+  position: absolute; z-index: 2; top: 4vmin; right: 1.2vmin; transform: rotate(12deg); /* above the game's art, fully inside the tile */ font-size: clamp(11px, 1.9vmin, 22px); font-weight: 900; letter-spacing: .12em;
   color: #fff; border: .4vmin solid #fff; padding: .4vmin 1.6vmin; border-radius: .8vmin; background: rgba(18,147,90,.85);
 }
 
@@ -112,7 +112,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 
 /* Today's Champions: one game's podium at a time (launcher.js sets --c1 to that game's color) */
 .champs { --c1: #7b4dff; display: flex; flex-direction: column; }
-.champs-head { display: flex; align-items: center; justify-content: space-between; gap: 1vmin; margin-bottom: .6vmin; }
+.champs-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6vmin 1vmin; margin-bottom: .6vmin; } /* the game icons drop under the heading when the panel is narrow */
 .champs-head h2 { margin-bottom: 0; white-space: nowrap; }
 .champ-dots { display: flex; gap: .6vmin; flex-shrink: 0; }
 .champ-dots button { width: clamp(26px, 3.8vmin, 46px); height: clamp(26px, 3.8vmin, 46px); padding: 0; border-radius: 50%; display: grid; place-items: center;
@@ -130,7 +130,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #champs .medal { width: 1.6em; text-align: center; }
 #champs .who { flex: 1; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #champs .sc { color: var(--accent); min-width: 4.5em; text-align: right; font-variant-numeric: tabular-nums; }
-#champs .none { flex: 1; color: var(--muted); font-weight: 600; font-style: italic; }
+#champs .none { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-weight: 600; font-style: italic; }
 .champ-game.swap, #champs.swap { animation: champIn .45s ease both; }
 #champs.swap li { animation: champIn .45s ease both; }
 #champs.swap li:nth-child(2) { animation-delay: .08s; }
@@ -140,7 +140,10 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @media (prefers-reduced-motion: reduce) {
   .champ-game.swap, #champs.swap, #champs.swap li { animation: none; }
 }
-.expert-list { display: flex; flex-wrap: wrap; gap: .8vmin; }
+/* Experts come from every device, so the list can grow long: it scrolls inside its panel */
+.panel.experts { display: flex; flex-direction: column; }
+.expert-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .8vmin; min-height: 0; overflow-y: auto; }
+.panel.experts .issued { flex-shrink: 0; }
 .expert { padding: .5vmin 1.6vmin; border-radius: 999px; background: linear-gradient(90deg, #ffd23f, #ff7a1a); color: #1a1240; font-weight: 900; font-size: clamp(12px, 2vmin, 24px); animation: pop .5s backwards; }
 .expert-empty { color: var(--muted); font-size: clamp(12px, 2vmin, 24px); font-weight: 600; }
 .issued { margin-top: 1vmin; font-size: clamp(11px, 1.8vmin, 22px); color: var(--muted); font-weight: 700; }
@@ -157,6 +160,29 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .sheet p { font-size: clamp(14px, 2.5vmin, 32px); font-weight: 600; color: #e8e4ff; margin-top: .6vmin; }
 .name-box { min-width: 60vmin; height: 11vmin; display: flex; align-items: center; justify-content: center; font-size: 8vmin; font-weight: 900; letter-spacing: .06em; border-bottom: 1vmin solid var(--accent); }
 .name-box::after { content: "_"; color: var(--accent); animation: blinkText 1s steps(2) infinite; }
+/* the goodie this player is on the way to, or has earned */
+.pp-goodie { margin-top: .5vmin; font-size: clamp(12px, 1.8vmin, 24px); font-weight: 700; color: var(--muted); text-align: left; }
+.pp-goodie.on { background: var(--accent); color: #1a1240; border-radius: 999px; padding: .4vmin 1.6vmin; font-weight: 900; }
+/* tablets and small laptops: the goodie line takes the place of the stamp count (the stamps show right below),
+   so the panel keeps its height and the game tiles keep theirs */
+@media (min-width: 641px) and (max-width: 1240px) and (min-height: 501px) {
+  .passport .pp-sub { display: none; }
+  #champs .sc { min-width: 3.4em; }
+  .pp-goodie-how { display: none; }
+  .pp-goodie { margin-top: 2px; }
+  .pp-goodie.on { padding: 1px 10px; font-size: 12px; white-space: nowrap; }
+}
+/* the question for each step: "STEP 1 OF 2" small, then "Type your first name" big, key words bold and gold */
+.name-ask { display: flex; flex-direction: column; align-items: center; gap: .5vmin; text-align: center; }
+.name-ask .ask-step { font-size: clamp(11px, 1.6vmin, 19px); letter-spacing: .26em; color: var(--muted); font-weight: 800; }
+.name-ask .ask-q { font-size: clamp(18px, 3.4vmin, 42px); font-weight: 700; color: #fff; line-height: 1.2; }
+.name-ask .ask-q b { color: var(--accent); font-weight: 900; }
+/* the same name already has a passport on this device today: is it you? */
+.same-name { display: flex; flex-direction: column; align-items: center; gap: 2vmin; text-align: center; max-width: 92vmin; }
+.same-name p { font-size: clamp(15px, 2.6vmin, 30px); font-weight: 700; line-height: 1.35; }
+.same-actions { display: flex; gap: 2vmin; flex-wrap: wrap; justify-content: center; }
+.cta-small { font-size: clamp(15px, 2.6vmin, 30px); font-weight: 900; color: #1a1240; background: var(--accent); padding: 1.2vmin 3.4vmin; border-radius: 999px; box-shadow: 0 .5vmin 0 #b38a00; }
+.sheet .name-note { margin-top: 0; font-size: clamp(12px, 1.9vmin, 22px); color: var(--muted); font-weight: 600; text-align: center; }
 .keys { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.1vmin; width: min(100%, 92vmin); }
 .key { height: 8vmin; border-radius: 1.4vmin; background: rgba(255,255,255,.14); font-size: clamp(18px, 3.8vmin, 48px); font-weight: 800; box-shadow: 0 .6vmin 0 rgba(0,0,0,.4); }
 .key:active { transform: translateY(.5vmin); box-shadow: none; }
@@ -165,9 +191,13 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .key.ok:disabled { opacity: .35; }
 .sheet-actions { display: flex; gap: 2vmin; }
 
+/* upright screens (a portrait kiosk, a tablet held upright): tiles keep their natural height, three to a
+   row, so each one shows its art and PLAY button; the page scrolls if it still doesn't fit */
 @media (orientation: portrait) {
-  .tiles { grid-template-columns: repeat(2, 1fr); overflow-y: auto; }
-  .bottom { grid-template-columns: 1fr; }
+  html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+  .tiles { grid-template-columns: repeat(3, 1fr); flex: none; overflow: visible; }
+  .bottom { grid-template-columns: 1fr 1fr; }
+  .bottom > .passport { grid-column: 1 / -1; }
 }
 
 /* ---------- phones: one page that scrolls, games as full-width rows ----------
@@ -236,6 +266,9 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   .sheet h2 { font-size: 22px; }
   .sheet p { font-size: 14px; }
   .name-box { min-width: 0; width: 100%; height: 52px; font-size: 32px; border-bottom-width: 4px; }
+  .name-ask { gap: 2px; }
+  .name-ask .ask-step { font-size: 10.5px; letter-spacing: .2em; }
+  .name-ask .ask-q { font-size: 18px; }
   .keys { gap: 6px; }
   .key { height: 46px; font-size: 20px; border-radius: 10px; box-shadow: 0 3px 0 rgba(0,0,0,.4); }
   .sheet-actions { gap: 10px; }
@@ -244,6 +277,46 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 /* landscape phones: two columns of game rows and panels side by side */
 @media (max-height: 500px) and (min-width: 641px) {
   .tiles, .bottom { grid-template-columns: 1fr 1fr; }
+}
+/* shorter laptop and tablet screens leave the tiles little room for their art: STAMPED becomes a small corner tag
+   instead of a ribbon across the title (a stamped game no longer needs its NEW tag) */
+@media (min-width: 641px) and (min-height: 501px) and (max-height: 820px) and (orientation: landscape) {
+  .tile .stamped { top: .8vmin; right: .8vmin; transform: none; font-size: clamp(9px, 1.4vmin, 14px); letter-spacing: .06em; border-width: 2px; padding: .2vmin 1vmin; border-radius: 999px; }
+  .tile:has(.stamped) .new { display: none; }
+}
+/* a phone belongs to one person: no "I'm done — next player" there */
+@media (max-width: 640px), (max-height: 500px) {
+  .pp-actions .next-player { display: none; }
+  .pp-actions:not(:has(> :not(.next-player))) { display: none; }
+}
+/* small upright phones: the name sheet fits one screen, without the tagline */
+@media (max-width: 640px) and (max-height: 640px) and (orientation: portrait) {
+  .sheet-head p { display: none; }
+  .sheet-head .pp-cover { display: none; }
+  .sheet { gap: 8px; padding: 12px 12px; }
+}
+/* phones held sideways: the name sheet fits one screen, so OK is always in sight (no passport picture or tagline) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .overlay { align-items: center; }
+  .sheet { gap: 6px; padding: 10px 14px; width: min(100%, 760px); }
+  .sheet-head .pp-cover, .sheet-head p { display: none; }
+  .sheet h2 { font-size: 18px; }
+  .name-box { height: 40px; font-size: 26px; }
+  .name-ask { flex-direction: row; align-items: baseline; gap: 10px; }
+  .name-ask .ask-step { font-size: 10px; letter-spacing: .14em; }
+  .name-ask .ask-q { font-size: 16px; }
+  .sheet .name-note { font-size: 10px; }
+  .keys { width: 100%; }
+  .sheet-actions .ghost { font-size: 13px; padding: 6px 16px; }
+}
+@media (max-height: 370px) and (orientation: landscape) {
+  .sheet { gap: 4px; padding: 8px 14px; }
+}
+/* the shortest sideways phones: the privacy line gives up its room so Cancel stays on screen */
+@media (max-height: 340px) and (orientation: landscape) {
+  .sheet .name-note { display: none; }
+  .sheet { gap: 3px; padding: 6px 12px; }
+  .sheet h2 { font-size: 15px; }
 }
 
 @keyframes rainbow { to { background-position: 200% 0; } }

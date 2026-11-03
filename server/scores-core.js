@@ -1,6 +1,6 @@
 // ============================================================
-//  SCORE RULES — shared by the local server (server/server.js) and the AWS API
-//  (aws/lambda/handler.js), so both accept, clean and return scores the same way.
+//  SCORE RULES — shared by every host (the local server, the Azure Functions API), so all of
+//  them accept, clean and return scores the same way.
 // ============================================================
 'use strict';
 
@@ -8,26 +8,53 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-// Highest believable score per game; anything above is rejected.
-// Tighten these once you know what real top scores look like.
+// The highest score each game can actually produce (worked out from its own settings), with a
+// small margin. Anything above is impossible, so it's refused. test/api.test.mjs recomputes the
+// real maximum from each game's settings, so editing a game can't silently make these too low.
+//   master-the-map  13,200  (10 questions ≤200 × combo ≤4, 6 journey steps ≤300 × 4, +1,000 mastery)
+//   route-rush      ~200,000 only if every request scored ≤800 × double points × rush event
+//   health-journey  a few thousand realistically (challenges ≤300, events, finish + stamp bonuses)
+//   evernorth-city  34,500  (10 builds ≤3,000 + 3 news rewards of 1,500)
+//   case-files      3,300   (2 cases, clues ≤300 each, +300 per perfect case)
 const GAMES = {
-  'master-the-map': { maxScore: 1000000 },
-  'route-rush': { maxScore: 1000000 },
-  'health-journey': { maxScore: 1000000 },
-  'evernorth-city': { maxScore: 10000000 },
-  'case-files': { maxScore: 1000000 },
+  'master-the-map': { maxScore: 15000 },
+  'route-rush': { maxScore: 200000 },
+  'health-journey': { maxScore: 20000 },
+  'evernorth-city': { maxScore: 40000 },
+  'case-files': { maxScore: 5000 },
 };
 const NAME_MAX = 20;
+// Goodies at the booth. A solo game counts as passed with at least PASS_PCT% of its answers right (best attempt
+// counts); each person gets the highest goodie they've earned. Keep in step with GOODIES in shared/passport.js.
+const PASS_PCT = 40;
+const GOODIES = [
+  { id: 'chocolate', name: 'Chocolate', games: 3, stock: 30 },
+  { id: 'keychain', name: 'Keychain', games: 4, stock: 30 },
+  { id: 'phone-holder', name: 'Phone holder', games: 5, stock: 20 },
+];
+const TOP_PRIZE = { id: 'top-phone-holder', goodie: 'phone-holder', perGame: 2, stock: 10 }; // top 2 on each game's board
+const DETAIL_TEXT_MAX = 20;     // per-game extras shown next to names (rank, token …)
 const MAX_BODY = 64 * 1024;     // bytes per request
-const MAX_PER_POST = 50;        // scores per upload
+const MAX_PER_POST = 25;        // scores per upload (the games send at most 25 at a time)
+// Wrong admin passwords: this many from one address pauses it for the rest of the window.
+// Strict, because event passwords tend to be short and easy to remember.
+const ADMIN_FAIL_LIMIT = 5;
+const ADMIN_FAIL_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LIMIT = 100;          // scores per game per list
-const POSTS_PER_MINUTE = 60;    // uploads per client address
+// Uploads per client address per minute. Offices usually share one public address, so this is
+// sized for ~1,000 people on one network finishing games within a few minutes, while still
+// stopping floods (each upload is also capped at MAX_PER_POST scores, all validated).
+const POSTS_PER_MINUTE = 300;
 const DETAILS_MAX = 8;          // extra per-game fields kept with a score (accuracy, rank, …)
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at']);
+const CORE = new Set(['id', 'game', 'name', 'score', 'day', 'at', 'tag']);
+// A player's passport tag ("qw7", shown as "#qw7"): three random characters that tell two people with the
+// same name apart on every screen. Lowercase letters and digits without look-alikes (0/o, 1/l/i). It identifies
+// nobody, so it is shown unmasked. Keep in step with TAG_CHARS in shared/passport.js.
+const TAG_RE = /^[a-hjkmnp-z2-9]{3}$/;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// File types served to browsers (local server and the AWS upload).
+// File types served to browsers (local server and the Azure upload).
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -45,18 +72,46 @@ const CONTENT_TYPES = {
   '.woff2': 'font/woff2',
 };
 
-// Optional name filter: one word per line in blocked-words.txt.
+// Name filter: one word or phrase per line in blocked-words.txt (lines starting with # are notes).
+// Words of 5+ letters are caught anywhere in a name, even split up ("b a d w o r d").
+// Shorter words only match a whole word of the name, so real names that merely contain
+// them (Cassandra, Dickens …) aren't refused.
 function loadNameFilter(dir) {
   let words = [];
   try {
     words = fs.readFileSync(path.join(dir, 'blocked-words.txt'), 'utf8').split(/\r?\n/)
       .map((w) => w.trim().toLowerCase()).filter((w) => w && !w.startsWith('#'));
   } catch { /* no list */ }
-  const isBlocked = (name) => {
-    const flat = name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-    return words.some((w) => flat.includes(w));
+  const flatten = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const long = words.map(flatten).filter((w) => w.length >= 5);
+  const short = new Set(words.map(flatten).filter((w) => w.length > 0 && w.length < 5));
+  const isBlocked = (text) => {
+    const flat = flatten(text);
+    if (long.some((w) => flat.includes(w))) return true;
+    return text.toLowerCase().split(/[^\p{L}\p{N}]+/u).some((t) => short.has(t)) || short.has(flat);
   };
   return { words, isBlocked };
+}
+
+// Names: letters (any language), spaces, hyphens and apostrophes — what the on-screen keyboard can type,
+// plus real names like "Anne-Marie" or "O'Neil" — optionally followed by a last initial ("Priya S.").
+// No digits, emojis or symbols: two people with the same name are told apart by their passport tag.
+const NAME_RE = /^[\p{L}\p{M}](?:[\p{L}\p{M}' -]*[\p{L}\p{M}])?(?: \p{L}\.)?$/u;
+
+// Names leave the API partly hidden, so a public leaderboard can't be used to look employees up:
+// "Priya S." → "Pr***a S.", "Mohammed K." → "Mo***d K.", "Ann" → "A*n", "Li W." → "L* W.". Only the first name is masked; the last
+// initial and any number are kept. Keep in step with maskName() in shared/passport.js.
+function maskName(name) {
+  const s = String(name || '').trim();
+  if (!s || s.includes('*')) return s;
+  const [first, ...rest] = s.split(' ');
+  const ch = Array.from(first);
+  const n = ch.length;
+  const masked = n >= 4 ? ch.slice(0, 2).join('') + '***' + ch[n - 1] // always three stars: the length stays hidden too
+    : n === 3 ? ch[0] + '*' + ch[2]
+    : n === 2 ? ch[0] + '*'
+    : first;
+  return [masked, ...rest].join(' ');
 }
 
 // Returns a clean score ready to store, or null if it isn't acceptable.
@@ -65,22 +120,31 @@ function cleanScore(e, now, isBlocked) {
   const id = typeof e.id === 'string' && /^[\w-]{1,40}$/.test(e.id) ? e.id : null;
   const game = Object.hasOwn(GAMES, e.game) ? e.game : null;
   const name = typeof e.name === 'string'
-    ? e.name.normalize('NFC').replace(/\p{C}/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX) : '';
+    ? e.name.normalize('NFC').replace(/\p{C}/gu, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX).trim() : '';
   const score = Math.round(Number(e.score));
   const day = typeof e.day === 'string' && DAY_RE.test(e.day) ? e.day : null;
   if (!id || !game || !name || !day || !Number.isFinite(score) || score < 0 || score > GAMES[game].maxScore) return null;
+  if (!NAME_RE.test(name)) return null;
   if (isBlocked && isBlocked(name)) return null;
   // `day` is the player's local date; refuse dates that haven't started anywhere yet
   const dayStart = Date.parse(`${day}T00:00:00Z`);
   if (!Number.isFinite(dayStart) || dayStart > now + DAY_MS) return null;
   const at = Number.isFinite(e.at) && e.at > 0 && e.at <= now + DAY_MS ? Math.round(e.at) : now;
+  // the passport tag is optional (older scores have none); a malformed one is simply left off
+  const tag = typeof e.tag === 'string' && TAG_RE.test(e.tag) && !(isBlocked && isBlocked(e.tag)) ? e.tag : null;
+  // per-game extras (accuracy, rank, token …) are shown next to names, so text gets the same filter
   const details = {};
   for (const [k, v] of Object.entries(e)) {
     if (CORE.has(k) || !/^\w{1,20}$/.test(k) || Object.keys(details).length >= DETAILS_MAX) continue;
     if (typeof v === 'number' && Number.isFinite(v)) details[k] = v;
-    else if (typeof v === 'string') details[k] = v.slice(0, 40);
     else if (typeof v === 'boolean') details[k] = v;
+    else if (typeof v === 'string') {
+      const text = v.normalize('NFC').replace(/\p{C}/gu, '').trim().slice(0, DETAIL_TEXT_MAX);
+      if (isBlocked && isBlocked(text)) return null;
+      details[k] = text;
+    }
   }
+  if (tag) details.tag = tag;
   return { id, game, name, score, day, at, details };
 }
 
@@ -97,20 +161,31 @@ function localToday() {
 const parseDay = (v) => (v && DAY_RE.test(v) ? v : localToday());
 const parseLimit = (v) => Math.min(MAX_LIMIT, Math.max(1, parseInt(v, 10) || 10));
 
-// Uploads allowed per client address per minute; old entries are swept as it goes.
-function createRateLimiter(perMinute = POSTS_PER_MINUTE) {
+// Counts events per client address in a time window (default: a minute); old entries are swept as
+// it goes. limited(key) counts one and says whether the address is over the limit;
+// limited.over(key) only checks, without counting.
+function createRateLimiter(perWindow = POSTS_PER_MINUTE, windowMs = 60000) {
   const seen = new Map();
   let swept = Date.now();
-  return (key) => {
-    const t = Date.now();
-    if (t - swept > 60000) {
-      for (const [k, u] of seen) if (t - u.start > 60000) seen.delete(k);
+  const current = (key, t) => {
+    if (t - swept > windowMs) {
+      for (const [k, u] of seen) if (t - u.start > windowMs) seen.delete(k);
       swept = t;
     }
     let u = seen.get(key);
-    if (!u || t - u.start > 60000) { u = { start: t, count: 0 }; seen.set(key, u); }
-    return ++u.count > perMinute;
+    if (!u || t - u.start > windowMs) { u = { start: t, count: 0 }; seen.set(key, u); }
+    return u;
   };
+  const limited = (key) => ++current(key, Date.now()).count > perWindow;
+  limited.over = (key) => current(key, Date.now()).count >= perWindow;
+  return limited;
+}
+
+// Which browser pages may send scores. Requests without an Origin header (not from a browser
+// page) are allowed and rate-limited like everyone else; pages on other sites are refused,
+// so a stranger's website can't make its visitors' browsers post scores.
+function originAllowed(origin, allowedOrigins) {
+  return !origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin);
 }
 
 function tokenMatches(authorizationHeader, adminToken) {
@@ -125,8 +200,8 @@ function corsHeaders(origin, allowedOrigins) {
   if (!allow) return {};
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Token',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -134,7 +209,7 @@ function corsHeaders(origin, allowedOrigins) {
 const parseOrigins = (v) => String(v || '*').split(',').map((s) => s.trim()).filter(Boolean);
 
 module.exports = {
-  GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, CONTENT_TYPES,
-  loadNameFilter, cleanScore, toPublic, byRank, localToday, parseDay, parseLimit,
-  createRateLimiter, tokenMatches, corsHeaders, parseOrigins,
+  GAMES, NAME_MAX, MAX_BODY, MAX_PER_POST, MAX_LIMIT, POSTS_PER_MINUTE, ADMIN_FAIL_LIMIT, ADMIN_FAIL_WINDOW_MS, CONTENT_TYPES,
+  PASS_PCT, GOODIES, TOP_PRIZE, TAG_RE, loadNameFilter, cleanScore, toPublic, maskName, byRank, localToday, parseDay, parseLimit,
+  createRateLimiter, originAllowed, tokenMatches, corsHeaders, parseOrigins,
 };

@@ -11,6 +11,8 @@
     eventDuration: 8,
     eventSpawnFactor: 0.55,
     wrongRevealMs: 1400,
+    waitingDrain: 0.3,
+    readTime: 8,
     resultTimeoutSec: 45,
     leaderboardSize: 10,
     leaderboardScope: 'today',
@@ -173,7 +175,7 @@
     return score > 0 && (b.length < CFG.leaderboardSize || score > b[b.length - 1].score);
   }
   function addScore(name, score, accuracy) {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, accuracy, day: today() };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, accuracy, pct: accuracy, day: today() };
     return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
@@ -181,6 +183,8 @@
       ? `🏆 Today's Top ${CFG.leaderboardSize}` : `🏆 Top ${CFG.leaderboardSize}`;
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) {
       ol.append(el('li', 'empty', 'No dispatchers yet — set the first record!'));
@@ -190,7 +194,7 @@
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', e.name),
+        window.Passport.dimTag(el('span', 'name', e.name)),
         el('span', 'acc', `🎯 ${e.accuracy}%`),
         el('span', 'pts', e.score.toLocaleString()),
       );
@@ -256,7 +260,9 @@
     }
     const bizId = pick(pool);
     const fresh = BY_BIZ[bizId].filter((r) => !G.recent.includes(r));
-    const req = pick(fresh.length ? fresh : BY_BIZ[bizId]);
+    // not one of the last few, and one this player hasn't been sent today (in any earlier round), when there is one
+    const P = window.Passport;
+    const req = P && P.pickFresh ? P.pickFresh(fresh.length ? fresh : BY_BIZ[bizId], (r) => r.text) : pick(fresh.length ? fresh : BY_BIZ[bizId]);
     G.recent.push(req);
     if (G.recent.length > 14) G.recent.shift();
     const powerKeys = G.mode === 'solo' ? ['freeze', 'hint', 'double', 'heart'] : ['freeze', 'hint', 'double'];
@@ -451,7 +457,8 @@
         this.spawnT = lvl.spawnEvery * (G.event ? CFG.eventSpawnFactor : 1);
       }
 
-      if (!frozen) for (const it of this.queue) if (!it.resolving) it.left -= dt;
+      // the request being answered counts down in full; the ones still waiting in line only slowly
+      if (!frozen) this.queue.forEach((it, i) => { if (!it.resolving) it.left -= i === 0 ? dt : dt * CFG.waitingDrain; });
       for (const it of this.queue.slice()) {
         if (!it.resolving && it.left <= 0) this.expire(it);
         if (this.out) return;
@@ -469,6 +476,9 @@
     advance() {
       if (this.hintN > 0) this.hintN--;
       this.queue.shift();
+      // the next request always gives the player time to read it
+      const next = this.queue[0];
+      if (next) next.left = Math.max(next.left, Math.min(next.max, CFG.readTime));
       this.renderFront();
       this.renderQueue();
     }
@@ -595,6 +605,9 @@
   }
 
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     teardown();
     resetReady();
     renderLeaderboard(highlightId);
@@ -822,7 +835,7 @@
     const bonus = completed ? l.hearts * 200 : 0;
     G.finalScore = l.score + bonus;
     G.finalAcc = s.accuracy;
-    if (window.Passport) window.Passport.stamp('route-rush', G.finalScore);
+    if (window.Passport) window.Passport.stamp('route-rush', G.finalScore, G.finalAcc);
 
     const title = $('#soTitle');
     title.textContent = completed ? 'SHIFT COMPLETE!' : 'OUT OF HEARTS!';
@@ -839,7 +852,12 @@
     renderBlindSpot($('#blind'), l, s.blind);
     renderSoloBadges(l, s, completed);
 
-    const qualifies = isHighScore(G.finalScore);
+    // every finished solo score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.finalScore, G.finalAcc).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.finalScore);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
 
@@ -971,32 +989,11 @@
   });
 
   // ================================================================ name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { G.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.tap();
-    if (ch === 'DEL') G.name = G.name.slice(0, -1);
-    else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = G.name;
-    $('#keys .ok').disabled = !G.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();
@@ -1102,7 +1099,14 @@
   $('#soloBtn').addEventListener('click', () => startGame('solo'));
   $('#duelBtn').addEventListener('click', goReady);
   $('#readyBack').addEventListener('click', () => goAttract());
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', () => startGame('solo'));
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#rematchBtn').addEventListener('click', () => startGame('duel'));

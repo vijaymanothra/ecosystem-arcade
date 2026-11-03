@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
 <title>The Ecosystem Arcade</title>
 <link rel="stylesheet" href="shared/launcher.css">
 </head>
@@ -47,11 +48,15 @@
           <p>Collect a stamp from every game today. All 5 = <b>Ecosystem Expert!</b></p>
         </div>
       </div>
-      <div class="label">TYPE YOUR FIRST NAME</div>
+      <div id="nameLabel" class="name-ask"><span class="ask-q">Please Enter Your <b>Full Name</b></span></div>
       <div id="nameBox" class="name-box"></div>
+      <p id="nameNote" class="name-note">Only your first name and last initial are kept. Others see them partly hidden, like <b>Pr***a S.</b></p>
       <div id="keys" class="keys"></div>
+      <div id="sameName" class="same-name" hidden>
+        <p id="sameText"></p>
+        <div id="sameActions" class="same-actions"></div>
+      </div>
       <div class="sheet-actions">
-        <button id="guestBtn" class="ghost" type="button">Play as guest</button>
         <button id="cancelBtn" class="ghost" type="button">Cancel</button>
       </div>
     </div>

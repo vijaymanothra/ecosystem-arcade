@@ -38,7 +38,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
 #flash { position: fixed; inset: 0; pointer-events: none; z-index: 70; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(255,40,80,.75) 100%); }
 #flash.on { animation: flashOn .7s ease-out; }
-#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
+#toast { position: fixed; left: 50%; bottom: 4vmin; transform: translateX(-50%); z-index: 90; pointer-events: none; /* a message never blocks a tap */ background: #000c; padding: 1.5vmin 3vmin; border-radius: 999px; font-size: 2.4vmin; font-weight: 700; }
 
 .cta {
   font-size: clamp(22px, 4.4vmin, 58px); font-weight: 900; letter-spacing: .05em;
@@ -128,7 +128,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 #lb { list-style: none; display: flex; flex-direction: column; gap: .6vmin; overflow: hidden; }
 #lb li { display: flex; align-items: center; gap: 1.4vmin; font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; font-variant-numeric: tabular-nums; padding: .3vmin 1.2vmin; border-radius: 1.2vmin; background: rgba(255,255,255,.05); }
 #lb .rank { width: 2em; color: var(--muted); }
-#lb .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#lb .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #lb .bl { color: var(--muted); font-size: .8em; }
 #lb .pts { color: var(--accent); min-width: 4.5em; text-align: right; }
 #lb li.new { animation: glow .6s ease-in-out infinite alternate; }
@@ -147,6 +147,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .stat.pop b.bump { animation: pop .5s; }
 .stat.pop b.down { color: var(--bad); }
 .stat.news b.soon { color: #ff8a3d; animation: pulse .8s infinite; }
+.stat.news b.ready { color: var(--good); }
 .cov-icons { display: flex; gap: .3vmin; font-size: clamp(14px, 2.6vmin, 32px); }
 .cov-icons span { filter: grayscale(1) opacity(.25); transition: filter .4s; }
 .cov-icons span.on { filter: none; }
@@ -180,6 +181,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .bp .bp-name { font-size: clamp(15px, 2.6vmin, 34px); font-weight: 900; line-height: 1.05; }
 .bp .bp-kind { font-size: clamp(11px, 1.8vmin, 22px); font-weight: 900; letter-spacing: .14em; padding: .3vmin 1.2vmin; border-radius: 999px; background: rgba(0,0,0,.3); align-self: flex-start; }
 .bp .bp-kind.up { background: var(--accent); color: #1a1240; }
+.bp .bp-kind .ks { display: none; }
 .bp .bp-role { font-size: clamp(11px, 1.8vmin, 22px); font-weight: 600; opacity: .95; line-height: 1.2; }
 .bp .bp-gain { font-size: clamp(15px, 2.6vmin, 34px); font-weight: 900; color: #fff7c2; }
 .bp .bp-stars { position: absolute; top: 1.2vmin; right: 1.6vmin; font-size: clamp(12px, 2.2vmin, 26px); letter-spacing: .1em; }
@@ -267,10 +269,93 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .nw-tip { margin-top: 1.2vmin; font-family: "Segoe UI", sans-serif; font-size: clamp(14px, 2.5vmin, 32px); font-weight: 700; color: #5a4a2a; }
 .paper .tap-hint { margin-top: 1vmin; font-family: "Segoe UI", sans-serif; }
 
+/* news forecast: a city radar picks up tomorrow's story */
+.fc-card {
+  width: min(100%, 124vmin); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4vmin; align-items: center;
+  padding: 3.6vmin 4.4vmin; border-radius: 3vmin; color: #fff; text-align: left;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(46,229,157,.2), transparent 55%), linear-gradient(160deg, #142a52, #0b1230 70%);
+  border: .4vmin solid rgba(46,229,157,.6); box-shadow: 0 2vmin 6vmin rgba(0,0,0,.6), 0 0 6vmin rgba(46,229,157,.25);
+}
+.fc-card.in { animation: fcIn .6s cubic-bezier(.2,1.3,.4,1); }
+.fc-radar {
+  position: relative; width: clamp(110px, 28vmin, 360px); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; border: .4vmin solid rgba(46,229,157,.75);
+  background:
+    linear-gradient(rgba(46,229,157,.35), rgba(46,229,157,.35)) center / 100% 1px no-repeat,
+    linear-gradient(rgba(46,229,157,.35), rgba(46,229,157,.35)) center / 1px 100% no-repeat,
+    repeating-radial-gradient(circle, transparent 0 15%, rgba(46,229,157,.35) 15% 15.8%),
+    radial-gradient(circle, #0f4a46, #061a2c 72%);
+  box-shadow: inset 0 0 4vmin rgba(46,229,157,.35);
+}
+.fc-sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(46,229,157,.6), rgba(46,229,157,0) 28%, transparent); animation: radarSpin 2.4s linear infinite; }
+.fc-icon { position: relative; font-size: clamp(52px, 12.5vmin, 170px); line-height: 1; filter: drop-shadow(0 0 2vmin rgba(46,229,157,.7)); animation: float 3s ease-in-out infinite; }
+.fc-kicker { font-size: clamp(12px, 2vmin, 26px); font-weight: 900; letter-spacing: .2em; color: var(--good); }
+.fc-body h2 { font-size: clamp(24px, 5.4vmin, 72px); font-weight: 900; line-height: 1.05; margin: .8vmin 0 1vmin; }
+.fc-need { font-size: clamp(15px, 2.7vmin, 34px); font-weight: 600; color: #e8e4ff; line-height: 1.3; }
+.fc-hint {
+  margin-top: 1.8vmin; padding: 1.2vmin 1.8vmin; border-radius: 1.4vmin; line-height: 1.35;
+  font-size: clamp(14px, 2.4vmin, 30px); font-weight: 700; background: rgba(255,210,63,.14); border-left: .8vmin solid var(--accent);
+}
+.fc-hint.ready { background: rgba(46,229,157,.14); border-left-color: var(--good); }
+.fc-tag { display: inline-block; background: var(--accent); color: #1a1240; padding: 0 .7em; border-radius: 999px; font-size: .85em; letter-spacing: .06em; white-space: nowrap; }
+.fc-stakes { display: flex; flex-wrap: wrap; gap: 1.4vmin; margin-top: 1.6vmin; }
+.fc-stakes span { padding: .6vmin 1.8vmin; border-radius: 999px; font-size: clamp(13px, 2.2vmin, 28px); font-weight: 800; }
+.fc-stakes b { white-space: nowrap; }
+.fc-stakes .good { background: rgba(46,229,157,.16); color: var(--good); }
+.fc-stakes .bad { background: rgba(255,77,109,.16); color: #ff8da3; }
+.fc-card .tap-hint { margin-top: 1.2vmin; }
+
+/* the blueprint that gets the city ready for the forecast news glows, with a 📡 tag */
+.bp.radar { border-color: var(--accent); animation: dealCard .5s cubic-bezier(.2,1.3,.4,1) backwards, radarGlow 1.4s .5s ease-in-out infinite alternate; }
+.bp .bp-radar {
+  align-self: flex-start; font-size: clamp(11px, 1.7vmin, 21px); font-weight: 900; letter-spacing: .08em; white-space: nowrap;
+  padding: .3vmin 1.2vmin; border-radius: 999px; background: var(--accent); color: #1a1240; box-shadow: 0 .4vmin 0 #b38a00;
+}
+
+@keyframes fcIn { from { transform: scale(.6) translateY(6vmin); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes radarSpin { to { transform: rotate(360deg); } }
+@keyframes radarGlow {
+  from { box-shadow: 0 1.2vmin 0 rgba(0,0,0,.35), 0 0 0 .3vmin rgba(255,210,63,.45), 0 0 2vmin rgba(255,210,63,.3); }
+  to { box-shadow: 0 1.2vmin 0 rgba(0,0,0,.35), 0 0 0 .7vmin rgba(255,210,63,.9), 0 0 5vmin rgba(255,210,63,.7); }
+}
+
+/* upright phones: radar on top, text below */
+@media (max-width: 640px) {
+  .fc-card { grid-template-columns: 1fr; gap: 10px; padding: 18px 16px; border-radius: 18px; text-align: center; }
+  .fc-radar { width: 104px; justify-self: center; }
+  .fc-icon { font-size: 52px; }
+  .fc-kicker { font-size: 10.5px; letter-spacing: .05em; }
+  .fc-body h2 { font-size: 23px; }
+  .fc-need { font-size: 14.5px; }
+  .fc-hint { font-size: 13.5px; text-align: left; padding: 9px 12px; border-left-width: 5px; }
+  .fc-stakes { justify-content: center; gap: 8px; }
+  .fc-stakes span { font-size: 12.5px; padding: 4px 10px; }
+  .fc-card .tap-hint { text-align: center; font-size: 12px; }
+  .bp .bp-radar { font-size: 9.5px; padding: 2px 7px; white-space: normal; }
+}
+/* sideways phones: radar beside the text, everything smaller */
+@media (max-height: 500px) and (orientation: landscape) {
+  .fc-card { gap: 16px; padding: 12px 18px; border-radius: 16px; }
+  .fc-radar { width: 92px; }
+  .fc-icon { font-size: 44px; }
+  .fc-kicker { font-size: 10.5px; letter-spacing: .12em; }
+  .fc-body h2 { font-size: 20px; margin: 3px 0 4px; }
+  .fc-need { font-size: 13px; }
+  .fc-hint { font-size: 12.5px; margin-top: 6px; padding: 6px 10px; border-left-width: 5px; }
+  .fc-stakes { margin-top: 6px; gap: 6px; }
+  .fc-stakes span { font-size: 11.5px; padding: 3px 9px; }
+  .fc-card .tap-hint { font-size: 11px; margin-top: 4px; }
+  .bp .bp-radar { font-size: 9px; padding: 2px 6px; white-space: normal; }
+}
+
 /* ================================================================ RESULTS + ENTRY */
 #results, #entry { align-items: center; justify-content: center; }
 #results { align-items: flex-end; }
 #results .res-card { width: min(100%, 40vw, 820px); background: rgba(10,10,40,.7); }
+/* a long "not in your city yet" list can make the card taller than a laptop or phone screen: then the
+   panel scrolls so BUILD AGAIN is always reachable (auto margins keep it centred when it fits) */
+#results { overflow-y: auto; justify-content: flex-start; }
+#results .res-card { margin-block: auto; flex-shrink: 0; }
 .res-card, .entry-card {
   width: min(100%, 120vmin); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.6vmin;
   background: rgba(10,10,40,.8); border: 2px solid rgba(255,210,63,.45); border-radius: 3vmin; padding: 3vmin 4vmin;
@@ -284,6 +369,42 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .res-stats div { display: flex; flex-direction: column; background: rgba(255,255,255,.08); border-radius: 2vmin; padding: 1.2vmin 2.6vmin; }
 .res-stats b { font-size: clamp(20px, 4.4vmin, 56px); line-height: 1.1; }
 .res-stats span { font-size: clamp(11px, 1.8vmin, 22px); color: var(--muted); font-weight: 700; }
+/* businesses the player didn't build, so every game shows all of them */
+.res-missing { display: flex; flex-direction: column; align-items: center; gap: .8vmin; width: 100%; }
+.res-missing-list { display: flex; flex-wrap: wrap; justify-content: center; gap: .8vmin; }
+.res-missing-chip {
+  --bc: #555; display: grid; grid-template-columns: auto auto; column-gap: .8vmin; align-items: center; text-align: left;
+  padding: .6vmin 1.4vmin; border-radius: 1.4vmin; background: color-mix(in srgb, var(--bc) 30%, rgba(0,0,0,.25));
+  border: 2px solid color-mix(in srgb, var(--bc) 70%, transparent); max-width: 100%;
+}
+.res-missing-chip > span { grid-row: span 2; font-size: clamp(18px, 3vmin, 36px); line-height: 1; }
+.res-missing-chip b { font-size: clamp(12px, 1.9vmin, 22px); line-height: 1.15; }
+.res-missing-chip small { font-size: clamp(10px, 1.5vmin, 17px); color: var(--muted); font-weight: 600; line-height: 1.2; }
+/* the "not in your city yet" list needs the room: the big city icon steps aside, and a longer list
+   shows names only, so BUILD AGAIN stays on screen */
+.res-card:has(.res-missing:not([hidden])) .res-icon { display: none; }
+.res-missing-list:has(> :nth-child(4)) small { display: none; }
+.res-missing-list:has(> :nth-child(4)) .res-missing-chip > span { grid-row: auto; font-size: clamp(16px, 2.4vmin, 28px); }
+/* landscape screens up to the 1080p kiosk: a perfect city earns a third badge, so the card is kept a little tighter */
+@media (orientation: landscape) and (max-height: 1100px) {
+  #results .res-card { gap: 1.2vmin; padding: 2.6vmin 3.4vmin; }
+  .res-icon { font-size: 10vmin; }
+  .res-stats { flex-wrap: nowrap; gap: 1vmin; } /* all four stats on one row */
+  .res-stats div { padding: 1vmin 1.6vmin; }
+  .res-stats span { font-size: clamp(10px, 1.5vmin, 18px); }
+}
+@media (orientation: landscape) and (max-height: 820px) {
+  #results .res-card { gap: .9vmin; padding: 2vmin 3vmin; }
+  .res-icon { font-size: 7vmin; }
+  .res-card h1 { font-size: clamp(30px, 7vmin, 140px); }
+  .res-pop b { font-size: clamp(30px, 7vmin, 110px); }
+  .res-stats div { padding: .8vmin 2.2vmin; }
+}
+/* tablets and small laptops held sideways: a wider card (so the four stats fit on one row), starting below the 🏠 badge */
+@media (orientation: landscape) and (min-width: 641px) and (max-width: 1300px) {
+  #results .res-card { width: min(100%, 50vw, 820px); }
+  .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1vmin); }
+}
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vmin; }
 .badge { padding: .9vmin 2.6vmin; border-radius: 999px; font-weight: 800; font-size: clamp(13px, 2.5vmin, 30px); background: linear-gradient(180deg, #7b4dff, #4b23c9); box-shadow: 0 .6vmin 0 #2b1180; animation: pop .5s backwards; }
 .actions { display: flex; justify-content: center; align-items: center; gap: 2.4vmin; flex-wrap: wrap; margin-top: 1vmin; }
@@ -310,22 +431,78 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   #stage.finale #city { right: 0; width: 100%; height: 45%; }
 }
 
+/* the player's 🏠 badge sits top-right, over the end of the stats bar: keep the bar's stats clear of it */
+@media (min-width: 641px) and (min-height: 501px) { /* phones have their own, smaller badge (below) */
+  .eap-has-bar .hud { padding-right: var(--eap-bar-w, 220px); }
+  .eap-has-bar .hud-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+/* tablets held sideways: the stats bar is too full for the city name and the forecast ("🧠 TOMORROW") beside the badge */
+@media (min-width: 641px) and (max-width: 1240px) and (min-height: 501px) and (orientation: landscape), (min-width: 641px) and (max-width: 1500px) and (min-height: 501px) and (min-aspect-ratio: 1/1) and (max-aspect-ratio: 3/2) {
+  .eap-has-bar .hud-title { display: none; }
+  .eap-has-bar .hud { justify-content: flex-start; gap: .4vmin; flex-wrap: wrap; }
+  .eap-has-bar .stat { padding: 0 .9vmin; }
+  .eap-has-bar .stat b { font-size: clamp(16px, 3vmin, 30px); }
+  .eap-has-bar .stat.pop b { font-size: clamp(18px, 3.6vmin, 36px); }
+}
+
+/* upright screens, tablets and small laptops: the centred start-screen heading moves down below the badge */
+@media (min-width: 641px) and (min-height: 501px) and (max-width: 1500px), (orientation: portrait) and (min-width: 641px) and (min-height: 501px) {
+  .eap-has-bar #attract header.brand { padding-inline: 0; padding-top: max(0px, calc(var(--eap-bar-h, 0px) - 2vmin)); }
+}
+
 /* ---------- phones ----------  Kiosk, laptop and desktop screens never match these sizes. */
 @media (max-width: 640px), (max-height: 500px) {
   .hud { padding-right: 44px; } /* room for the small 🏠 in the corner */
+}
+/* phone held sideways: the results card is one screen tall, so it leaves out the decorative icon and tightens up */
+@media (max-height: 500px) and (orientation: landscape) {
+  .res-icon { display: none; }
+  #results .res-card { gap: 5px; padding: 10px 14px; }
+  .res-card h1 { font-size: 30px; }
+  .res-pop b { font-size: 30px; }
+  .res-stats { gap: 6px; }
+  .res-stats div { padding: 3px 10px; }
+  .res-stats b { font-size: 18px; }
+  .res-stats span { font-size: 10px; }
+  .badges { gap: 5px; }
+  .badge { font-size: 12px; padding: 3px 10px; }
+  .res-missing-chip b { font-size: 12px; }
+  .res-missing-chip small { font-size: 10px; }
+  .actions .cta { font-size: 18px; padding: 8px 22px; }
 }
 @media (max-width: 640px) {
   /* blueprints as compact full-width cards under the city, so they don't cover it */
   .hand { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
   .bp { width: 100%; padding: 10px 12px; gap: 3px; border-radius: 14px; }
   .bp:hover { transform: none; }
-  .bp .bp-kind, .bp .bp-stars { display: none; }
-  .bp .bp-top { gap: 10px; }
+  .bp .bp-stars { display: none; }
+  /* NEW BUILD / UPGRADE as a small tag in the corner, so the cards stay compact */
+  .bp .bp-kind { position: absolute; top: 9px; right: 10px; font-size: 9.5px; letter-spacing: .08em; padding: 2px 7px; }
+  .bp .bp-top { gap: 10px; padding-right: 118px; }
   .bp .bp-icon { font-size: 26px; }
   .bp .bp-name { font-size: 16px; }
   .bp .bp-role { font-size: 12.5px; }
   .bp .bp-gain { font-size: 15px; }
   #stage.playing #city { top: 170px; height: calc(100% - 170px - 330px); }
+}
+/* upright phones: each blueprint is one neat row — icon | name + role | tag + people — so the city gets the room */
+@media (max-width: 640px) and (orientation: portrait) {
+  .hand { gap: 12px; }
+  .bp {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: "icon name kind" "icon role gain";
+    column-gap: 10px; row-gap: 2px; align-items: center; padding: 8px 12px; border-radius: 12px;
+  }
+  .bp .bp-top { display: contents; }
+  .bp .bp-icon { grid-area: icon; font-size: 27px; justify-self: center; }
+  .bp .bp-name { grid-area: name; font-size: 15px; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .bp .bp-role { grid-area: role; font-size: 11.5px; line-height: 1.25; opacity: .92; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .bp .bp-kind { grid-area: kind; position: static; justify-self: end; align-self: end; font-size: 9.5px; letter-spacing: .06em; padding: 2px 8px; }
+  .bp .bp-kind .kl { display: none; }
+  .bp .bp-kind .ks { display: inline; }
+  .bp .bp-gain { grid-area: gain; justify-self: end; align-self: start; font-size: 14px; white-space: nowrap; }
+  /* "📡 READY FOR THE NEWS" sits on the card's top edge */
+  .bp .bp-radar { position: absolute; top: -9px; left: 12px; z-index: 1; font-size: 9px; padding: 1px 7px; white-space: nowrap; box-shadow: 0 2px 0 #b38a00; }
+  #stage.playing #city { top: 170px; height: calc(100% - 170px - 232px); }
 }
 
 /* ================================================================ KEYFRAMES */
@@ -352,3 +529,37 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 @keyframes flashOn { from { opacity: 1; } to { opacity: 0; } }
 @keyframes glow { from { background: rgba(255,210,63,.12); } to { background: rgba(255,210,63,.45); } }
 @keyframes blinkText { 50% { opacity: 0; } }
+
+/* very wide kiosk screens (4K): the results card starts below the player's 🏠 badge */
+@media (min-width: 2400px) {
+  .eap-has-bar #results { padding-top: calc(var(--eap-bar-h, 0px) + 1vmin); }
+}
+
+/* small phones held sideways (under 640px wide): the upright-phone layout is too tall here, so the blueprints
+   sit side by side as on bigger sideways phones, the city keeps its normal place, and the stats bar drops the title */
+@media (max-width: 640px) and (orientation: landscape) {
+  .hud-title { display: none; }
+  .hand { flex-direction: row; align-items: stretch; }
+  .bp { width: auto; flex: 1 1 0; min-width: 0; padding: 8px 10px; }
+  .bp .bp-kind { position: static; align-self: flex-start; }
+  .bp .bp-top { padding-right: 0; }
+  .bp .bp-role { font-size: 11px; }
+  #stage.playing #city { top: 13vmin; height: calc(100% - 13vmin - 22vmin); }
+}
+
+/* narrow phones: the start-screen heading keeps clear of the small 🏠 badge */
+@media (max-width: 400px) {
+  .eap-has-bar #attract .brand { padding-inline: 40px; }
+  .eap-has-bar #attract .kicker { font-size: 10px; letter-spacing: .12em; padding-inline: 10px; }
+}
+
+/* upright phones: the newspaper's headline shrinks with the width so its longest word stays on the page */
+@media (max-width: 640px) and (orientation: portrait) {
+  .paper-main { gap: 8px; }
+  .nw-icon { font-size: 44px; flex: none; }
+  .paper-main h1 { font-size: clamp(18px, 6.2vw, 30px); min-width: 0; }
+}
+@media (min-width: 641px) and (orientation: portrait) {
+  .nw-icon { font-size: 12vmin; flex: none; }
+  .paper-main h1 { font-size: 6vmin; min-width: 0; }
+}

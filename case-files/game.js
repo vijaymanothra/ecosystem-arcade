@@ -143,18 +143,20 @@
     return score > 0 && (b.length < CFG.leaderboardSize || score > b[b.length - 1].score);
   }
   function addScore(name, score, rank) {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, rank, day: today() };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, rank, pct: G.pct, day: today() };
     return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? "🏆 Today's Top Detectives" : '🏆 Top Detectives';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No cases closed yet. The city needs you, detective.')); return; }
     lb.forEach((e, i) => {
       const li = el('li', e.id === highlightId ? 'new' : '');
-      li.append(el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`), el('span', 'name', `Det. ${e.name}`), el('span', 'rk', e.rank || ''), el('span', 'pts', e.score.toLocaleString()));
+      li.append(el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`), window.Passport.dimTag(el('span', 'name', `Det. ${e.name}`)), el('span', 'rk', e.rank || ''), el('span', 'pts', e.score.toLocaleString()));
       ol.append(li);
     });
   }
@@ -223,6 +225,9 @@
 
   // ================================================================ attract + desk
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     G.canPlay = false;
     clearInterval(G.tick);
@@ -241,7 +246,9 @@
 
   function goDesk() {
     const remaining = CASES.filter((c) => !G.done.some((d) => d.kase === c));
-    G.offered = shuffle(remaining).slice(0, CFG.folderChoices);
+    // offer cases this player hasn't opened today (in any earlier game) first
+    const P = window.Passport;
+    G.offered = (P && P.freshFirst ? P.freshFirst(remaining, (c) => c.title) : shuffle(remaining)).slice(0, CFG.folderChoices);
     $('#deskCount').textContent = `CASE ${G.done.length + 1} OF ${CFG.casesPerGame}`;
     const box = $('#folders');
     box.replaceChildren();
@@ -270,6 +277,7 @@
     const id = G.runId;
     Sound.folder();
     G.kase = c;
+    if (window.Passport && window.Passport.markSeen) window.Passport.markSeen(c.title); // offered later only once the others are done
     $('#brCode').textContent = `${caseCode(c)} · CONFIDENTIAL`;
     $('#brPhoto').textContent = c.patient.icon;
     $('#brName').textContent = c.patient.name;
@@ -651,8 +659,9 @@
   function finalReport() {
     const [, name, icon] = rankFor(G.score);
     G.rank = name;
-    if (window.Passport) window.Passport.stamp('case-files', G.score);
     const acc = G.totalSteps ? Math.round((100 * G.firstTry) / G.totalSteps) : 0;
+    G.pct = acc; // right first time, the accuracy the report shows
+    if (window.Passport) window.Passport.stamp('case-files', G.score, acc);
     const total = G.done.reduce((t, d) => t + d.secs, 0);
     $('#rpIcon').textContent = icon;
     $('#rpRank').textContent = name.toUpperCase();
@@ -670,7 +679,12 @@
     const bx = $('#rpBadges');
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.6 + i * 0.2}s`; bx.append(b); });
-    const qualifies = isHighScore(G.score);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.score, G.rank).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.score);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('report');
@@ -692,32 +706,11 @@
   }
 
   // ================================================================ name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.key(), onDone: (name) => { G.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.key();
-    if (ch === 'DEL') G.name = G.name.slice(0, -1);
-    else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = G.name;
-    $('#keys .ok').disabled = !G.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();
@@ -757,7 +750,14 @@
   $('#brIntro').addEventListener('click', () => { G.skipType = true; });
   $('#sticky').addEventListener('click', () => { G.skipType = true; });
   $('#nextBtn').addEventListener('click', nextAfterClose);
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());

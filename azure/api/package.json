@@ -1,0 +1,14 @@
+{
+  "name": "ecosystem-arcade-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scores API for the Ecosystem Arcade on Azure Static Web Apps (Azure Functions)",
+  "main": "src/functions/*.js",
+  "dependencies": {
+    "@azure/functions": "4.17.0",
+    "@azure/storage-blob": "12.34.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -3,7 +3,6 @@
 
   const P = window.Passport;
   const LAUNCHER_IDLE_SIGNOUT_SEC = 90; // nobody touches the launcher → sign the player out for the next person
-  const NAME_MAX = 10;
 
   // Tile copy + look. Game ids must match the folder names and Passport.GAMES.
   const TILES = {
@@ -79,7 +78,7 @@
     const box = $('#tiles');
     box.replaceChildren();
     const c = P.current();
-    const me = c && P.player(c.name);
+    const me = c && P.player(c.name, c.tag);
     const champs = Object.fromEntries(P.champions().map((x) => [x.game.id, x.top]));
     P.GAMES.forEach((g, i) => {
       const t = TILES[g.id] || { art: g.icon, tagline: '', time: '', players: '' };
@@ -101,7 +100,7 @@
         el('div', 'tn', g.name),
         el('div', 'tt', t.tagline),
         chips,
-        el('div', 'best', top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today'),
+        P.dimTag(el('div', 'best', P.paused(g.id) ? '🔒 Leaderboard paused' : top ? `👑 Today: ${top.name} · ${top.score.toLocaleString()}` : '👑 No champion yet today')),
         el('div', 'play', '▶ PLAY'),
       );
       tile.querySelector('.art').style.animationDelay = `${-i * 0.6}s`;
@@ -122,16 +121,38 @@
   addEventListener('resize', fitArt);
   if (document.fonts) document.fonts.ready.then(fitArt);
 
+  // Where the player stands for a goodie: how far to the next one, or a button that shows the card for the goodie desk.
+  function goodieLine() {
+    const st = P.currentGoodie();
+    if (st.collected || st.earned) {
+      const b = el('button', 'pp-goodie on', st.collected ? `🎁 ${st.collected.name} collected` : `🎁 ${st.earned.name} earned: tap to collect`);
+      b.type = 'button';
+      b.addEventListener('click', () => { sfx.tap(); P.showGoodie(); });
+      return b;
+    }
+    const more = st.next.games - st.passed;
+    const line = el('div', 'pp-goodie', `🎁 Pass ${more} more game${more === 1 ? '' : 's'} for a goodie`);
+    line.append(el('span', 'pp-goodie-how', ` (${P.PASS_PCT}%+ right, solo)`));
+    return line;
+  }
+  // a passport on this device catches up with the server: goodies collected at the desk, stamps from another browser
+  async function syncMine() {
+    const c = P.current();
+    if (!c || !window.Leaderboard || !window.Leaderboard.lookup) return;
+    const mine = (await window.Leaderboard.lookup(c.name)).find((p) => p.tag === c.tag);
+    if (mine && P.syncRemote(mine)) renderAll();
+  }
+
   function renderPassport() {
     const box = $('#passportPanel');
     box.replaceChildren();
     const c = P.current();
-    const me = c && P.player(c.name);
+    const me = c && P.player(c.name, c.tag);
     const top = el('div', 'pp-top');
     const txt = el('div');
     if (c) {
       const n = me ? Object.keys(me.stamps).length : 0;
-      txt.append(el('div', 'pp-name', `${c.name}'s Passport`), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`));
+      txt.append(P.dimTag(el('div', 'pp-name', `${c.name}'s Passport${c.tag ? ` #${c.tag}` : ''}`)), el('div', 'pp-sub', n >= P.GAMES.length ? '🏆 Ecosystem Expert — all stamps collected!' : `${n} of ${P.GAMES.length} stamps · ${P.GAMES.length - n} to go for Ecosystem Expert`), goodieLine());
       top.append(el('div', 'pp-icon', n >= P.GAMES.length ? '🏆' : '📮'), txt);
     } else {
       txt.append(el('div', 'pp-name', 'Evernorth Passport'), el('div', 'pp-sub', 'Get a stamp from every game today — all 5 makes you an Ecosystem Expert!'));
@@ -147,7 +168,7 @@
     }
     const actions = el('div', 'pp-actions');
     if (c) {
-      const done = el('button', 'ghost', "✋ I'm done — next player");
+      const done = el('button', 'ghost next-player', "✋ I'm done — next player"); // hidden on phones: one phone, one player
       done.type = 'button';
       done.addEventListener('click', () => { sfx.tap(); P.signOut(); renderAll(); toast('See you later! 👋 Passport saved for today.'); });
       actions.append(done);
@@ -186,12 +207,19 @@
     head.replaceChildren(el('span', null, g.icon), el('span', null, g.name));
     const ol = $('#champs');
     ol.replaceChildren();
+    if (P.paused(g.id)) { // staff paused this leaderboard from the admin page
+      const li = el('li', 'p1');
+      li.append(el('span', 'medal', '🔒'), el('span', 'none', 'Leaderboard paused by staff'));
+      ol.append(li);
+      if (animate) for (const n of [head, ol, $('.champ-timer')]) { n.classList.remove('swap'); void n.offsetWidth; n.classList.add('swap'); }
+      return;
+    }
     const top = P.podium(g.id, 3);
     ['🥇', '🥈', '🥉'].forEach((medal, i) => {
       const e = top[i];
       const li = el('li', `p${i + 1}`);
       li.append(el('span', 'medal', medal));
-      if (e) li.append(el('span', 'who', e.name), el('span', 'sc', e.score.toLocaleString()));
+      if (e) li.append(P.dimTag(el('span', 'who', e.name)), el('span', 'sc', e.score.toLocaleString()));
       else li.append(el('span', 'none', i === 0 ? 'up for grabs — play now!' : 'up for grabs'));
       ol.append(li);
     });
@@ -208,12 +236,29 @@
 
   function renderExperts() {
     const players = P.playersToday();
-    const experts = players.filter((p) => Object.keys(p.stamps).length >= P.GAMES.length);
+    // Everyone who played all 5 today on any device (from the scores API), plus this device's own passports
+    // (they show straight away, even offline). One entry per person: same name and passport tag.
+    const shared = (window.Leaderboard && window.Leaderboard.experts) ? window.Leaderboard.experts() : [];
+    const local = players.filter((p) => Object.keys(p.stamps).length >= P.GAMES.length);
+    const keyOf = (e) => `${P.maskName(e.name).toLowerCase()}#${e.tag || ''}`;
+    const seen = new Set();
+    const experts = [];
+    for (const e of [...shared, ...local]) {
+      const k = keyOf(e);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      experts.push(e);
+    }
     const box = $('#experts');
     box.replaceChildren();
     if (!experts.length) box.append(el('div', 'expert-empty', 'Be the first to collect all 5 stamps today!'));
-    experts.forEach((p, i) => { const e = el('span', 'expert', `🏆 ${p.name}`); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
-    $('#issued').textContent = `📮 ${players.length} passport${players.length === 1 ? '' : 's'} issued today`;
+    experts.forEach((p, i) => { const e = P.dimTag(el('span', 'expert', `🏆 ${P.shownName({ name: p.name, tag: p.tag })}`)); e.style.animationDelay = `${i * 0.08}s`; box.append(e); });
+    // passports issued = players who played at least one game today: everyone, on any device (from the scores),
+    // or this device's own players who've played when the scores API hasn't answered yet
+    const playedHere = players.filter((p) => Object.keys(p.stamps).length > 0).length;
+    const playedEverywhere = window.Leaderboard && window.Leaderboard.playersToday ? window.Leaderboard.playersToday() : null;
+    const issued = Math.max(playedEverywhere || 0, playedHere);
+    $('#issued').textContent = `📮 ${issued} passport${issued === 1 ? '' : 's'} issued today`;
   }
 
   function renderAll() {
@@ -225,7 +270,7 @@
 
   // ---------------------------------------------------------------- choose + sign in
   let pendingGame = null;
-  let typed = '';
+  let step = 'name'; // 'name' → 'checking' → (a passport with this name exists today?) 'same'
 
   function choose(id) {
     sfx.tap();
@@ -245,52 +290,76 @@
     setTimeout(() => { location.href = `${id}/index.html?booth=1`; }, 450);
   }
 
+  // Signing in takes the full name, kept only as "Priya S.". If that name already has a passport today, on this
+  // device or (from its scores) on the server, ask before joining it: scanning the QR code again can open a fresh
+  // browser that has forgotten the player, and they should get their stamps back, not a second passport.
+  let entry = null;
+  let signinRun = 0; // a cancelled sheet ignores the answer it was waiting for
+  const LOOKUP_WAIT_MS = 4000;
   function openSignin(gameId) {
+    signinRun++;
     pendingGame = gameId;
-    typed = '';
-    renderName();
-    $('#guestBtn').hidden = !gameId;
+    setStep('name');
+    entry.reset();
     $('#signin').hidden = false;
   }
-  function closeSignin() { $('#signin').hidden = true; pendingGame = null; }
-
+  function closeSignin() { signinRun++; $('#signin').hidden = true; pendingGame = null; }
+  function setStep(s) {
+    step = s;
+    const q = el('span', 'ask-q', 'Please Enter Your ');
+    q.append(el('b', null, 'Full Name'));
+    $('#nameLabel').replaceChildren(...(s === 'name' ? [q] : [el('span', 'ask-step', s === 'checking' ? 'CHECKING…' : 'ONE QUICK CHECK')]));
+    $('#keys').hidden = s !== 'name';
+    $('#nameNote').hidden = s !== 'name';
+    $('#sameName').hidden = s !== 'same';
+  }
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
+    entry = P.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: sfx.tap, onDone: confirmName });
+  }
+  function typeKey(ch) { if (step === 'name') entry.type(ch); }
+  async function confirmName(name) {
+    const run = ++signinRun;
+    setStep('checking');
+    entry.setHint(`You'll appear as: ${name}`);
+    const remote = window.Leaderboard && window.Leaderboard.lookup ? await window.Leaderboard.lookup(name, LOOKUP_WAIT_MS) : [];
+    if (run !== signinRun) return; // cancelled meanwhile
+    // this device's passports and the server's, one entry per tag
+    const found = new Map(P.playersNamed(name).map((p) => [p.tag, { tag: p.tag, stamps: new Set(Object.keys(p.stamps)) }]));
+    for (const r of remote) {
+      const f = found.get(r.tag) || { tag: r.tag, stamps: new Set() };
+      for (const id of Object.keys(r.games || {})) f.stamps.add(id);
+      f.remote = r;
+      found.set(r.tag, f);
     }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', confirmName);
-    k.append(del, ok);
+    if (!found.size) { finishSignin(name); return; }
+    $('#sameText').textContent = found.size === 1
+      ? `We found a passport for ${name} today. Is that you?`
+      : `We found ${found.size} passports for ${name} today. Is one of them you?`;
+    const box = $('#sameActions');
+    box.replaceChildren();
+    for (const f of [...found.values()].slice(0, 4)) {
+      const b = el('button', 'cta-small', `Yes — I'm #${f.tag} · ${f.stamps.size}/${P.GAMES.length} stamps`);
+      b.type = 'button';
+      b.addEventListener('click', () => { sfx.tap(); finishSignin(name, f.tag, f.remote); });
+      box.append(b);
+    }
+    const no = el('button', 'ghost', "No — I'm someone else");
+    no.type = 'button';
+    no.addEventListener('click', () => { sfx.tap(); finishSignin(name); });
+    box.append(no);
+    setStep('same');
   }
-  function typeKey(ch) {
-    sfx.tap();
-    if (ch === 'DEL') typed = typed.slice(0, -1);
-    else if (typed.length < NAME_MAX) typed += typed ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = typed;
-    $('#keys .ok').disabled = !typed;
-  }
-  function confirmName() {
-    if (!typed) return;
-    const c = P.signIn(typed);
+  function finishSignin(name, tag, remote) {
+    const c = P.signIn(name, tag, remote);
     sfx.stamp();
     const game = pendingGame;
     closeSignin();
     renderAll();
     Confetti.burst(120);
-    const me = P.player(c.name);
+    const me = P.player(c.name, c.tag);
     const n = me ? Object.keys(me.stamps).length : 0;
-    toast(n ? `Welcome back, ${c.name}! ${n}/${P.GAMES.length} stamps so far.` : `Passport issued to ${c.name}! 📮`);
+    const label = P.withTag(c.name, c.tag);
+    toast(n ? `Welcome back, ${label}! ${n}/${P.GAMES.length} stamps so far.` : `Passport issued to ${label}! 📮`);
     if (game) setTimeout(() => go(game), 900);
   }
 
@@ -309,13 +378,13 @@
   document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
   setInterval(() => {
     if (Date.now() - lastTouch > LAUNCHER_IDLE_SIGNOUT_SEC * 1000) {
-      if (P.current()) { P.signOut(); renderAll(); }
+      if (P.current() && !P.isPhone()) { P.signOut(); renderAll(); } // a phone has no next player: stay signed in
       if (!$('#signin').hidden) closeSignin();
       lastTouch = Date.now();
     }
   }, 5000);
   // refresh champions periodically (other tabs / games update storage)
-  setInterval(renderAll, 30000);
+  setInterval(() => { renderAll(); syncMine(); }, 30000);
   if (window.Leaderboard) window.Leaderboard.onChange(renderAll);
 
   function buildBg() {
@@ -334,19 +403,19 @@
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg;
+    P.dimTag(t);
     t.hidden = false;
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.hidden = true; }, 3000);
   }
 
-  $('#guestBtn').addEventListener('click', () => { const g = pendingGame; closeSignin(); if (g) go(g); });
   $('#cancelBtn').addEventListener('click', () => { sfx.tap(); closeSignin(); });
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSignin();
-    if (e.key.length === 1 && /[a-z]/i.test(e.key) && !$('#signin').hidden) typeKey(e.key.toUpperCase());
+    if (e.key.length === 1 && /[a-z ]/i.test(e.key) && !$('#signin').hidden) { e.preventDefault(); typeKey(e.key.toUpperCase()); }
     if (e.key === 'Backspace' && !$('#signin').hidden) typeKey('DEL');
-    if (e.key === 'Enter' && !$('#signin').hidden) confirmName();
+    if (e.key === 'Enter' && !$('#signin').hidden && step === 'name') { e.preventDefault(); entry.confirm(); }
   });
 
   try { sessionStorage.setItem('ecosystemArcade.booth', '1'); } catch { /* ignore */ }
@@ -354,4 +423,7 @@
   buildKeys();
   renderAll();
   showChamp(0);
+  // sent here from a game because nobody was signed in: ask for the name, then go on to that game
+  const sentFrom = P.takePendingGame();
+  if (sentFrom) { if (P.current()) go(sentFrom); else openSignin(sentFrom); }
 })();

@@ -24,9 +24,20 @@
   if (QUESTIONS.length !== allQuestions.length) {
     console.warn(`Skipped ${allQuestions.length - QUESTIONS.length} invalid question(s) in questions.js`);
   }
-  const JOURNEY = Object.assign({ persona: 'Our member', intro: '', steps: [] }, window.QUIZ_JOURNEY || {});
-  JOURNEY.steps = (JOURNEY.steps || []).filter((s) => BIZ[s.answer] && s.text);
-  const JOURNEY_ON = CFG.journeyRound && JOURNEY.steps.length > 0 && BUSINESSES.length >= 4;
+  // Bonus-round journeys: QUIZ_JOURNEY plus any in QUIZ_JOURNEYS. Each game uses one the player hasn't done today.
+  const JOURNEYS = [window.QUIZ_JOURNEY, ...(window.QUIZ_JOURNEYS || [])]
+    .filter(Boolean)
+    .map((j) => Object.assign({ persona: 'Our member', intro: '' }, j, { steps: (j.steps || []).filter((s) => BIZ[s.answer] && s.text) }))
+    .filter((j) => j.steps.length);
+  const JOURNEY_ON = CFG.journeyRound && JOURNEYS.length > 0 && BUSINESSES.length >= 4;
+  let JOURNEY = JOURNEYS[0] || { persona: 'Our member', intro: '', steps: [] };
+  function chooseJourney() {
+    const P = window.Passport;
+    JOURNEY = (P && P.pickFresh ? P.pickFresh(JOURNEYS, (j) => `journey:${j.persona}`) : JOURNEYS[Math.floor(Math.random() * JOURNEYS.length)]) || JOURNEY;
+    $('#jTitle').textContent = `${JOURNEY.persona}'s Journey`;
+    $('#jSub').textContent = JOURNEY.intro;
+    return JOURNEY.steps;
+  }
 
   const TYPES = {
     scenario: '🎯 Who handles this?',
@@ -169,7 +180,7 @@
   function addScore(name, score, mastered, total) {
     const entry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name, score, mastered, total, day: today(),
+      name, score, mastered, total, pct: state.pct, day: today(),
     };
     return window.Leaderboard.add(LB_KEY, entry);
   }
@@ -178,6 +189,8 @@
       ? `🏆 Today's Top ${CFG.leaderboardSize}` : `🏆 Top ${CFG.leaderboardSize}`;
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) {
       ol.append(el('li', 'empty', 'No scores yet — be the first on the board!'));
@@ -187,7 +200,7 @@
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', e.name),
+        window.Passport.dimTag(el('span', 'name', e.name)),
         el('span', 'mastered', `🗺️ ${e.mastered}/${e.total}`),
         el('span', 'pts', e.score.toLocaleString()),
       );
@@ -257,16 +270,20 @@
   }
 
   function buildRun() {
-    // one random question per business, in random order
+    // one question per business, in random order: one this player hasn't seen today in any game, when there is one
+    const P = window.Passport;
     const run = [];
     for (const b of BUSINESSES) {
       const pool = QUESTIONS.filter((q) => q.business === b.id);
-      if (pool.length) run.push(pick(pool));
+      if (pool.length) run.push(P && P.pickFresh ? P.pickFresh(pool, (q) => q.q) : pick(pool));
     }
     return shuffle(run);
   }
 
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && state.savedId) highlightId = state.savedId;
+    state.savedId = null;
     state.runId++;
     state.locked = true;
     cancelAnimationFrame(state.raf);
@@ -283,7 +300,7 @@
     tryFullscreen();
     const id = ++state.runId;
     Object.assign(state, {
-      phase: 'main', run: buildRun(), steps: JOURNEY_ON ? JOURNEY.steps : [], idx: 0,
+      phase: 'main', run: buildRun(), steps: JOURNEY_ON ? chooseJourney() : [], idx: 0,
       score: 0, finalScore: 0, streak: 0, bestStreak: 0,
       mastered: new Set(), journeyCorrect: 0, correctTimes: [], locked: true,
     });
@@ -561,7 +578,9 @@
     const allMastered = mastered === total;
     const bonus = allMastered ? CFG.masteryBonus : 0;
     state.finalScore = state.score + bonus;
-    if (window.Passport) window.Passport.stamp('master-the-map', state.finalScore);
+    const asked = total + state.steps.length; // the business questions and the journey steps
+    state.pct = asked ? Math.round((100 * (mastered + state.journeyCorrect)) / asked) : 0;
+    if (window.Passport) window.Passport.stamp('master-the-map', state.finalScore, state.pct);
 
     const title = $('#overTitle');
     title.textContent = allMastered ? 'MAP MASTERED!'
@@ -583,7 +602,12 @@
     $('#stSpeed').textContent = avg == null ? '–' : `${avg.toFixed(1)}s`;
     renderBadges(mastered, total, avg);
 
-    const qualifies = isHighScore(state.finalScore);
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) state.savedId = addScore(autoName, state.finalScore, state.mastered.size, state.run.length).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(state.finalScore);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
 
@@ -642,32 +666,11 @@
   }
 
   // ---------------------------------------------------------------- name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { state.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.tap();
-    if (ch === 'DEL') state.name = state.name.slice(0, -1);
-    else if (state.name.length < NAME_MAX) state.name += state.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = state.name;
-    $('#keys .ok').disabled = !state.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     state.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();
@@ -693,10 +696,13 @@
     const d = document.documentElement;
     if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {});
   }
-  function toast(msg) {
+  // above = an element to show the message just above (so it doesn't cover it)
+  function toast(msg, above) {
     const t = $('#toast');
     t.textContent = msg;
+    t.classList.toggle('above-cta', Boolean(above));
     t.hidden = false;
+    if (above) t.style.setProperty('--hint-top', `${Math.max(8, above.getBoundingClientRect().top - t.offsetHeight - 12)}px`);
     clearTimeout(t._t);
     t._t = setTimeout(() => { t.hidden = true; }, 2500);
   }
@@ -716,11 +722,30 @@
   }
 
   // ---------------------------------------------------------------- wiring
-  $('#attract').addEventListener('click', () => {
+  // Only the play button starts a game. The business cards aren't choices — every game asks about
+  // all of them — so tapping one (or anywhere else) explains that and points at the button.
+  $('#startBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
     if (performance.now() < attractArmedAt) return;
     startGame();
   });
-  $('#saveBtn').addEventListener('click', goEntry);
+  $('#attract').addEventListener('click', (e) => {
+    if (performance.now() < attractArmedAt) return;
+    if (!e.target.closest('#attractMap .tile')) return;
+    const btn = $('#startBtn');
+    toast(`Every game asks about all ${BUSINESSES.length} businesses. Tap PLAY to start!`, btn);
+    restartAnim(btn, 'nudge');
+    clearTimeout(btn._nudge);
+    btn._nudge = setTimeout(() => btn.classList.remove('nudge'), 1300); // back to the usual pulse
+  });
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    state.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());
@@ -754,10 +779,10 @@
   $('#title').textContent = CFG.title;
   $('#subtitle').textContent = CFG.subtitle;
   $('#bizCount').textContent = BUSINESSES.length;
-  $('#personaName').textContent = JOURNEY.persona;
   $('#stepJourney').hidden = !JOURNEY_ON;
-  $('#jTitle').textContent = `${JOURNEY.persona}'s Journey`;
-  $('#jSub').textContent = JOURNEY.intro;
+  // one journey: name its person on the start screen; several: each game picks one
+  if (JOURNEYS.length > 1) $('#stepJourney').textContent = '3️⃣ Bonus: a patient journey';
+  else $('#personaName').textContent = JOURNEY.persona;
   buildBackground();
   buildKeys();
   renderAttractMap();

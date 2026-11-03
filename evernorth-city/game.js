@@ -7,6 +7,7 @@
     tagline: '',
     turns: 10,
     newsEvery: 3,
+    forecastDays: 1,
     questionTime: 15,
     factSec: 5,
     levelPop: [1000, 1500, 2500],
@@ -192,20 +193,22 @@
     return score > 0 && (b.length < CFG.leaderboardSize || score > b[b.length - 1].score);
   }
   function addScore(name, score, built) {
-    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, built, day: today() };
+    const entry = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, score, built, pct: G.pct, day: today() };
     return window.Leaderboard.add(LB_KEY, entry);
   }
   function renderLeaderboard(highlightId) {
     $('#lbTitle').textContent = CFG.leaderboardScope === 'today' ? "🏆 Today's Top Mayors" : '🏆 Top Mayors';
     const ol = $('#lb');
     ol.replaceChildren();
+    // staff paused this leaderboard from the admin page: scores are kept, just not shown
+    if (window.Leaderboard.isHidden(LB_KEY)) { ol.append(el('li', 'empty', '🔒 Leaderboard paused by staff')); return; }
     const lb = boardEntries();
     if (!lb.length) { ol.append(el('li', 'empty', 'No mayors yet — the city awaits you!')); return; }
     lb.forEach((e, i) => {
       const li = el('li', e.id === highlightId ? 'new' : '');
       li.append(
         el('span', 'rank', i < 3 ? ['🥇', '🥈', '🥉'][i] : `${i + 1}.`),
-        el('span', 'name', `Mayor ${e.name}`),
+        window.Passport.dimTag(el('span', 'name', `Mayor ${e.name}`)),
         el('span', 'bl', `🏢 ${e.built}/${CITY_BIZ.length}`),
         el('span', 'pts', `👥 ${e.score.toLocaleString()}`),
       );
@@ -274,8 +277,7 @@
     const L = (name) => { const g = sv('g', null, name); svg.append(g); city.layers[name] = g; return g; };
     const ground = L('ground');
     const cars = L('cars');
-    const builds = L('builds');
-    L('labels');
+    const builds = L('builds'); // buildings and their name signs, back to front
     L('fxl');
 
     // floating island edges
@@ -302,19 +304,22 @@
     const slots = PLOTS.map((id, k) => ({ id, ox: 1 + 3 * (k % 4), oy: 1 + 3 * Math.floor(k / 4) }))
       .sort((a, b) => (a.ox + a.oy) - (b.ox + b.oy));
     city.slots = {};
+    // Each lot draws its building and then its name sign, back to front. A building on a lot in
+    // front therefore passes in front of the signs behind it, so a name never appears painted on
+    // someone else's building (signs used to sit on a layer above every building).
     for (const s of slots) {
       const lot = sv('polygon', { points: pts([P(s.ox, s.oy), P(s.ox + 2, s.oy), P(s.ox + 2, s.oy + 2), P(s.ox, s.oy + 2)]) }, 'lot');
       ground.append(lot);
       s.lotEl = lot;
+      s.wrap = sv('g', null, 'slot-wrap');
       s.group = sv('g', null, 'slot');
-      builds.append(s.group);
+      s.wrap.append(s.group);
+      builds.append(s.wrap);
       s.level = 0;
       city.slots[s.id] = s;
       if (s.id === 'park' || s.id === 'plaza') drawPark(s);
-      else if (BIZ[s.id]) drawEmptyLot(s);
+      else if (BIZ[s.id]) { drawEmptyLot(s); drawLabel(s); }
     }
-    // labels on top
-    for (const s of slots) if (BIZ[s.id]) drawLabel(s);
 
     // traffic
     const vehicles = ['🚗', '🚕', '🚙', '🚌', '🚑', '🚚', '🚗', '🚕'];
@@ -356,20 +361,28 @@
 
   function drawLabel(s) {
     const b = BIZ[s.id];
-    const [x, y] = P(s.ox + 2, s.oy + 2);
     const g = sv('g', null, 'lot-label');
     g.style.setProperty('--bc', b.color);
-    const text = sv('text', { x, y: y + 22, 'text-anchor': 'middle', 'dominant-baseline': 'central' });
+    const text = sv('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central' });
     text.textContent = b.short || b.name;
-    const rect = sv('rect', { rx: 13, ry: 13 });
+    const rect = sv('rect', { rx: 13, ry: 13, width: (b.short || b.name).length * 9.6 + 26, height: 26 });
     g.append(rect, text);
-    city.layers.labels.append(g);
-    const w = (b.short || b.name).length * 9.6 + 26;
-    rect.setAttribute('x', x - w / 2);
-    rect.setAttribute('y', y + 9);
-    rect.setAttribute('width', w);
-    rect.setAttribute('height', 26);
+    s.wrap.append(g); // after its own building, before the lots in front
     s.labelEl = g;
+    placeLabel(s);
+  }
+
+  // Empty lot: the sign sits in the middle of the lot, under its faded icon (the front corner is easily
+  // hidden by a building in front). Built: it sits on the building's own roof, the highest point of that
+  // building, so it stays visible and can't be read as a neighbour's name.
+  function placeLabel(s, roof) {
+    const [x, y] = roof ? P(roof.x, roof.y, roof.z) : P(s.ox + 1, s.oy + 1);
+    const cy = roof ? y + 4 : y + 38;
+    const [rect, text] = s.labelEl.children;
+    rect.setAttribute('x', x - rect.getAttribute('width') / 2);
+    rect.setAttribute('y', cy - 13);
+    text.setAttribute('x', x);
+    text.setAttribute('y', cy);
   }
 
   function prism(g, ox, oy, spec, color) {
@@ -434,7 +447,7 @@
     }
     s.group.append(g);
     s.level = level;
-    if (s.labelEl) s.labelEl.classList.add('built');
+    if (s.labelEl) { s.labelEl.classList.add('built'); placeLabel(s, top); }
     return g;
   }
 
@@ -443,7 +456,7 @@
       if (!BIZ[s.id]) continue;
       s.level = 0;
       drawEmptyLot(s);
-      if (s.labelEl) s.labelEl.classList.remove('built');
+      if (s.labelEl) { s.labelEl.classList.remove('built'); placeLabel(s); }
       s.lotEl.classList.remove('target');
     }
     city.layers.fxl.replaceChildren();
@@ -453,6 +466,42 @@
     const r = s.lotEl.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top };
   }
+
+  // ---- phones only: the whole city is small on a phone, so the camera moves in on the lot being built
+  // (permit + construction up close), then back out to the whole city. Laptops and kiosks never zoom.
+  const ZOOM_MS = 850;
+  const phoneZoom = () => !!(window.Passport && window.Passport.isPhone && window.Passport.isPhone());
+  function zoomTo(s) {
+    if (!phoneZoom()) return false;
+    const svg = city.svg;
+    svg.style.transition = 'none';
+    svg.style.transform = ''; // measure the city as it normally sits
+    const box = svg.getBoundingClientRect();
+    const lot = s.lotEl.getBoundingClientRect();
+    const hud = $('.hud').getBoundingClientRect();
+    if (!lot.width || !box.width) return false;
+    const room = innerHeight - hud.bottom;
+    const scale = Math.max(1.4, Math.min(4, (innerWidth * 0.45) / lot.width, (room * 0.3) / lot.height));
+    const lx = lot.left + lot.width / 2;
+    const ly = lot.top + lot.height / 2;
+    // the lot lands a little below the middle of the free space, so a tall building rising from it stays in view
+    const tx = innerWidth / 2;
+    const ty = hud.bottom + room * 0.64;
+    svg.style.transformOrigin = `${lx - box.left}px ${ly - box.top}px`;
+    void svg.getBoundingClientRect();
+    svg.style.transition = `transform ${ZOOM_MS}ms cubic-bezier(.3,.8,.3,1)`;
+    svg.style.transform = `translate(${tx - lx}px, ${ty - ly}px) scale(${scale})`;
+    return true;
+  }
+  function zoomOut(instant) {
+    const svg = city.svg;
+    if (!svg.style.transform) return false;
+    svg.style.transition = instant ? 'none' : `transform ${ZOOM_MS}ms cubic-bezier(.3,.8,.3,1)`;
+    svg.style.transform = '';
+    return !instant;
+  }
+  // a phone turned sideways mid-zoom: show the whole city again rather than a camera aimed at the old layout
+  addEventListener('orientationchange', () => zoomOut(true));
 
   // ================================================================ sky
   function setSky(mode) {
@@ -505,11 +554,16 @@
 
   // ================================================================ attract
   function goAttract(highlightId) {
+    // back from a game whose score saved itself: highlight that score on the board (once)
+    if (!highlightId && G.savedId) highlightId = G.savedId;
+    G.savedId = null;
     G.runId++;
     clearInterval(G.autoTimer);
     clearTimeout(G.idleTimer);
     $('#permit').hidden = true;
     $('#news').hidden = true;
+    $('#forecast').hidden = true;
+    zoomOut(true);
     renderLeaderboard(highlightId);
     show('attract');
     // showcase a finished city
@@ -528,9 +582,10 @@
     clearInterval(G.attractTimer);
     G.runId++;
     const id = G.runId;
-    Object.assign(G, { day: 1, pop: 0, permits: 0, approved: 0, newsGood: 0, newsTotal: 0, answerTimes: [], lastTouch: performance.now() });
+    Object.assign(G, { day: 1, pop: 0, permits: 0, approved: 0, newsGood: 0, newsTotal: 0, answerTimes: [], forecast: null, lastTouch: performance.now() });
     G.used = new Set();
     G.usedEvents = new Set();
+    zoomOut(true);
     resetCity();
     setSky('day');
     show('play');
@@ -548,13 +603,25 @@
       if (id !== G.runId) return;
       setSky(G.day > CFG.turns * 0.7 ? 'sunset' : 'day');
       renderHud();
+      if (!G.forecast) {
+        const nd = nextNewsDay();
+        if (nd && nd - G.day <= CFG.forecastDays) {
+          G.forecast = planForecast(nd);
+          await wait(900); // let the last build's celebration settle first
+          if (id !== G.runId) return;
+          renderHud();
+          await showForecast();
+          if (id !== G.runId) return;
+        }
+      }
       const bizId = await chooseBlueprint();
       if (id !== G.runId || !bizId) return;
       const s = city.slots[bizId];
       const level = s.level + 1;
       s.lotEl.classList.add('target');
+      const zoomed = zoomTo(s);
       const arrow = placeArrow(s);
-      await wait(700);
+      await wait(zoomed ? ZOOM_MS + 150 : 700);
       if (id !== G.runId) return;
       const res = await permit(bizId, level);
       if (id !== G.runId) return;
@@ -562,6 +629,7 @@
       arrow.remove();
       if (res.ok) await construct(s, level, res.gain);
       if (id !== G.runId) return;
+      if (zoomOut()) { await wait(ZOOM_MS); if (id !== G.runId) return; }
       if (G.day % CFG.newsEvery === 0 && G.day < CFG.turns) {
         await news();
         if (id !== G.runId) return;
@@ -590,13 +658,17 @@
       s.classList.toggle('l3', lv >= 3);
       if (s.dataset.id === bumpId) restartAnim(s, 'new');
     }
-    const nextNews = Math.ceil(G.day / CFG.newsEvery) * CFG.newsEvery;
+    const nextNews = nextNewsDay();
     const n = $('#newsIn');
-    if (nextNews >= CFG.turns) { n.textContent = '—'; n.classList.remove('soon'); }
+    if (!nextNews) { n.textContent = '—'; n.classList.remove('soon', 'ready'); }
     else {
       const inDays = nextNews - G.day;
-      n.textContent = inDays === 0 ? 'TONIGHT' : `in ${inDays} day${inDays > 1 ? 's' : ''}`;
-      n.classList.toggle('soon', inDays === 0);
+      const when = inDays === 0 ? 'TONIGHT' : inDays === 1 ? 'TOMORROW' : `in ${inDays} days`;
+      // once forecast, the bar shows what's coming (🤒 TONIGHT): green when the city is ready for it
+      const ready = !!G.forecast && isReady(G.forecast.ev);
+      n.textContent = G.forecast ? `${G.forecast.ev.icon} ${when}` : when;
+      n.classList.toggle('soon', inDays === 0 && !ready);
+      n.classList.toggle('ready', ready);
     }
   }
 
@@ -610,19 +682,43 @@
   }
 
   // ---- blueprints
+  // Each day's three blueprints always give a real choice: at least one NEW business while any are
+  // still unbuilt (so all of them can be built in the game's days) and at least one UPGRADE once
+  // something is built. The third card is random as before, favouring new and low-level ones.
   function dealOptions() {
     const cands = CITY_BIZ.filter((b) => city.slots[b.id].level < 3 && QUESTIONS.some((q) => q.business === b.id));
     const weight = (b) => [3, 2, 1][city.slots[b.id].level] || 0;
-    const chosen = [];
-    const pool = cands.slice();
-    while (chosen.length < 3 && pool.length) {
-      const total = pool.reduce((t, b) => t + weight(b), 0);
+    const takeFrom = (list) => {
+      const total = list.reduce((t, b) => t + weight(b), 0);
       let r = Math.random() * total;
       let idx = 0;
-      for (; idx < pool.length; idx++) { r -= weight(pool[idx]); if (r <= 0) break; }
-      chosen.push(pool.splice(Math.min(idx, pool.length - 1), 1)[0]);
+      for (; idx < list.length; idx++) { r -= weight(list[idx]); if (r <= 0) break; }
+      return list.splice(Math.min(idx, list.length - 1), 1)[0];
+    };
+    const pool = cands.slice();
+    const chosen = [];
+    const fresh = pool.filter((b) => city.slots[b.id].level === 0);
+    const upgrades = pool.filter((b) => city.slots[b.id].level > 0);
+    for (const group of [fresh, upgrades]) {
+      if (!group.length) continue;
+      const b = takeFrom(group);
+      chosen.push(b);
+      pool.splice(pool.indexOf(b), 1);
     }
-    return chosen;
+    while (chosen.length < 3 && pool.length) chosen.push(takeFrom(pool));
+    // a forecast the city isn't ready for: one of today's blueprints is always a business that helps
+    const f = G.forecast;
+    if (f && !isReady(f.ev) && !chosen.some((b) => f.ev.needs.includes(b.id))) {
+      const helpers = cands.filter((b) => f.ev.needs.includes(b.id));
+      if (helpers.length) chosen[city.slots[chosen[0].id].level === 0 ? 0 : chosen.length - 1] = pick(helpers);
+    }
+    return shuffle(chosen);
+  }
+
+  function kindTag(lv, next) {
+    const k = el('span', `bp-kind${lv ? ' up' : ''}`);
+    k.append(el('span', 'kl', lv ? `UPGRADE → LEVEL ${next}` : 'NEW BUILD'), el('span', 'ks', lv ? `⬆ LV ${next}` : 'NEW'));
+    return k;
   }
 
   function chooseBlueprint() {
@@ -630,7 +726,11 @@
       const id = G.runId;
       const opts = dealOptions();
       if (!opts.length) { resolve(null); return; }
-      prompt(`📜 Day ${G.day} — pick a blueprint`, 'Which business should the city build?');
+      const f = G.forecast;
+      const helping = !!f && !isReady(f.ev);
+      prompt(`📜 Day ${G.day} — pick a blueprint`, helping
+        ? `📡 ${f.ev.headline.replace(/!$/, '')} ${f.day === G.day ? 'TONIGHT' : 'TOMORROW'} — look for the 📡 blueprint`
+        : 'Which business should the city build?');
       const hand = $('#hand');
       hand.replaceChildren();
       const timer = el('div', 'hand-timer');
@@ -647,11 +747,15 @@
         top.append(el('span', 'bp-icon', b.icon), el('span', 'bp-name', b.name));
         c.append(
           el('span', 'bp-stars', '★'.repeat(lv) + '☆'.repeat(3 - lv)),
-          el('span', `bp-kind${lv ? ' up' : ''}`, lv ? `UPGRADE → LEVEL ${next}` : 'NEW BUILD'),
+          kindTag(lv, next),
           top,
           el('span', 'bp-role', ROLES[b.id] || ''),
           el('span', 'bp-gain', `+${CFG.levelPop[next - 1].toLocaleString()} 👥`),
         );
+        if (helping && f.ev.needs.includes(b.id)) {
+          c.classList.add('radar');
+          c.insertBefore(el('span', 'bp-radar', `📡 READY FOR THE ${f.ev.icon} NEWS`), top);
+        }
         c.addEventListener('click', () => done(b.id));
         hand.append(c);
       });
@@ -688,7 +792,9 @@
   function pickQuestion(bizId) {
     const pool = QUESTIONS.filter((q) => q.business === bizId);
     const fresh = pool.filter((q) => !G.used.has(q));
-    const q = pick(fresh.length ? fresh : pool);
+    // not one asked earlier in this city; and one this player hasn't seen today in any game, when there is one
+    const P = window.Passport;
+    const q = P && P.pickFresh ? P.pickFresh(fresh.length ? fresh : pool, (x) => x.q) : pick(fresh.length ? fresh : pool);
     G.used.add(q);
     return q;
   }
@@ -835,14 +941,76 @@
   }
 
   // ---- news events
+  // The next news night (none on the last day), and whether the city has a business that helps.
+  function nextNewsDay() {
+    for (let d = G.day; d < CFG.turns; d++) if (d % CFG.newsEvery === 0) return d;
+    return 0;
+  }
+  function isReady(ev) { return ev.needs.some((n) => city.slots[n] && city.slots[n].level > 0); }
+
+  // Pick the coming story: one the city can still get ready for (a helping business that can be built),
+  // so the forecast is a real chance to plan, never a done deal or a lost cause.
+  function planForecast(day) {
+    let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
+    if (!pool.length) pool = EVENTS.slice();
+    const buildable = (id) => city.slots[id] && city.slots[id].level === 0 && QUESTIONS.some((q) => q.business === id);
+    const open = pool.filter((e) => !isReady(e) && e.needs.some(buildable));
+    return { day, ev: pick(open.length ? open : pool) };
+  }
+
+  function showForecast() {
+    return new Promise((resolve) => {
+      const id = G.runId;
+      const { ev, day } = G.forecast;
+      const builds = day - G.day + 1;
+      $('#fcIcon').textContent = ev.icon;
+      $('#fcWhen').textContent = `${day === G.day ? 'TONIGHT' : 'TOMORROW NIGHT'} · DAY ${day}`;
+      $('#fcHeadline').textContent = ev.headline;
+      $('#fcNeed').textContent = ev.need || '';
+      $('#fcNeed').hidden = !ev.need;
+      const hint = $('#fcHint');
+      if (isReady(ev)) {
+        const have = ev.needs.filter((n) => city.slots[n] && city.slots[n].level > 0).map((n) => `${BIZ[n].icon} ${BIZ[n].name}`);
+        hint.className = 'fc-hint ready';
+        hint.replaceChildren(el('span', null, '✅ Your city is ready: '), el('b', null, have.join(' & ')), el('span', null, ' is already built.'));
+      } else {
+        hint.className = 'fc-hint';
+        hint.replaceChildren(
+          el('span', null, '💡 Look for the blueprint marked '), el('b', 'fc-tag', '📡 READY'),
+          el('span', null, ` — you have ${builds} build${builds > 1 ? 's' : ''} to get ready.`));
+      }
+      $('#fcGood').textContent = `+${CFG.newsReward.toLocaleString()} 👥`;
+      $('#fcBad').textContent = `${CFG.newsPenalty.toLocaleString()} 👥`;
+      prompt('📡 News forecast', '');
+      const overlay = $('#forecast');
+      overlay.hidden = false;
+      restartAnim($('#fcCard'), 'in');
+      Sound.news();
+      const shownAt = performance.now();
+      let t = 0;
+      const done = () => {
+        clearTimeout(t);
+        overlay.onclick = null;
+        overlay.hidden = true;
+        resolve();
+      };
+      overlay.onclick = () => { if (performance.now() - shownAt > 1200) { Sound.tap(); done(); } };
+      t = setTimeout(() => { if (id === G.runId) done(); else overlay.hidden = true; }, 9000);
+    });
+  }
+
   function news() {
     return new Promise((resolve) => {
       const id = G.runId;
       const built = (e) => e.needs.some((n) => city.slots[n] && city.slots[n].level > 0);
-      let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
-      if (!pool.length) pool = EVENTS.slice();
-      const ready = pool.filter(built);
-      const ev = ready.length && Math.random() < 0.5 ? pick(ready) : pick(pool);
+      // the story that was forecast (a fallback pick only if there somehow wasn't one)
+      let ev = G.forecast && G.forecast.ev;
+      G.forecast = null;
+      if (!ev) {
+        let pool = EVENTS.filter((e) => !G.usedEvents.has(e.headline));
+        if (!pool.length) pool = EVENTS.slice();
+        ev = pick(pool);
+      }
       G.usedEvents.add(ev.headline);
       const ok = built(ev);
       G.newsTotal++;
@@ -890,6 +1058,7 @@
 
   // ---- finale
   async function finale(id) {
+    zoomOut(true);
     $('#hand').replaceChildren();
     prompt('🌃 Night falls over Evernorth City…', '');
     setSky('night');
@@ -911,7 +1080,8 @@
   }
 
   function showResults() {
-    if (window.Passport) window.Passport.stamp('evernorth-city', G.pop);
+    G.pct = G.permits ? Math.round((100 * G.approved) / G.permits) : 0; // permit questions answered right
+    if (window.Passport) window.Passport.stamp('evernorth-city', G.pop, G.pct);
     const built = CITY_BIZ.filter((b) => city.slots[b.id].level > 0).length;
     const landmarks = CITY_BIZ.filter((b) => city.slots[b.id].level >= 3).length;
     const [, rankName, rankIcon] = cityRank(G.pop);
@@ -935,7 +1105,25 @@
     bx.replaceChildren();
     badges.forEach((t, i) => { const b = el('span', 'badge', t); b.style.animationDelay = `${0.8 + i * 0.2}s`; bx.append(b); });
 
-    const qualifies = isHighScore(G.pop);
+    // every business is shown: the ones this city didn't build are listed with what they do
+    const missing = CITY_BIZ.filter((b) => city.slots[b.id].level === 0);
+    const ml = $('#resMissingList');
+    ml.replaceChildren();
+    for (const b of missing) {
+      const chip = el('span', 'res-missing-chip');
+      chip.style.setProperty('--bc', b.color);
+      chip.title = ROLES[b.id] || '';
+      chip.append(el('span', null, b.icon), el('b', null, b.short || b.name), el('small', null, ROLES[b.id] || ''));
+      ml.append(chip);
+    }
+    $('#resMissing').hidden = !missing.length;
+
+    // every finished score is saved automatically under the signed-in name
+    // (Save + name screen only if no name is known, e.g. a browser that can't store it)
+    const autoName = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (autoName) G.savedId = addScore(autoName, G.pop, CITY_BIZ.filter((b) => city.slots[b.id].level > 0).length).id;
+    if (window.Passport) window.Passport.savedNote($('#againBtn'), autoName);
+    const qualifies = !autoName && isHighScore(G.pop);
     $('#saveBtn').hidden = !qualifies;
     $('#againBtn').hidden = qualifies;
     show('results');
@@ -957,32 +1145,11 @@
   }
 
   // ================================================================ name entry
+  let nameKeys = null;
   function buildKeys() {
-    const k = $('#keys');
-    for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-      const b = el('button', 'key', ch);
-      b.type = 'button';
-      b.addEventListener('click', () => typeKey(ch));
-      k.append(b);
-    }
-    const del = el('button', 'key del', '⌫');
-    del.type = 'button';
-    del.addEventListener('click', () => typeKey('DEL'));
-    const ok = el('button', 'key ok', 'OK');
-    ok.type = 'button';
-    ok.addEventListener('click', saveName);
-    k.append(del, ok);
+    nameKeys = window.Passport.nameEntry({ keys: $('#keys'), box: $('#nameBox'), onKey: () => Sound.tap(), onDone: (name) => { G.name = name; saveName(); } });
   }
-  function typeKey(ch) {
-    Sound.tap();
-    if (ch === 'DEL') G.name = G.name.slice(0, -1);
-    else if (G.name.length < NAME_MAX) G.name += G.name ? ch.toLowerCase() : ch;
-    renderName();
-  }
-  function renderName() {
-    $('#nameBox').textContent = G.name;
-    $('#keys .ok').disabled = !G.name;
-  }
+  function renderName() { nameKeys.reset(); }
   function goEntry() {
     G.name = (window.Passport && window.Passport.currentName(NAME_MAX)) || '';
     renderName();
@@ -1017,7 +1184,14 @@
 
   // ================================================================ wiring
   $('#startBtn').addEventListener('click', startGame);
-  $('#saveBtn').addEventListener('click', goEntry);
+  // Save stores the score under the name the player signed in with: one tap, no keyboard.
+  // (The name screen only appears if no name is known, e.g. a browser that can't store it.)
+  $('#saveBtn').addEventListener('click', () => {
+    const name = window.Passport && window.Passport.currentName(NAME_MAX);
+    if (!name) return goEntry();
+    G.name = name;
+    saveName();
+  });
   $('#againBtn').addEventListener('click', startGame);
   $('#homeBtn').addEventListener('click', () => goAttract());
   $('#skipBtn').addEventListener('click', () => goAttract());

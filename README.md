@@ -46,18 +46,40 @@ To preview on a laptop: open the arcade in Chrome or Edge, press `F12`, then `Ct
 
 ## Evernorth Passport
 
-1. A player taps a game on the home screen and types their first name, or chooses **Play as guest**.
+1. A player taps a game on the home screen and types their first name. **A name is required to play.** There's no guest mode: if a game is opened without a name (e.g. from a direct link), the player is taken to the home screen's name prompt first, then straight into that game.
 2. Finishing any game stamps their passport for that game.
 3. Collecting all 5 stamps makes them an **Ecosystem Expert** on the home-screen wall. This works well for a daily prize.
 4. **I'm done — next player** signs them out. The home screen also signs them out after 90 seconds of inactivity.
 
 Passports reset each day. Two people with the same first name share a passport, so suggest adding an initial (e.g. "AlexK").
 
-**Getting on the leaderboard is a separate step.** When a game ends with a score good enough for today's top 10, the player taps **Save** and confirms their name. Signing in on the home screen fills the name in, but the score is only recorded after that tap. Route Rush Duel scores are never saved.
+**Scores save themselves.** When a game ends, the score is saved automatically under the name the player signed in with, and the results screen shows *"✅ Saved to the leaderboard as Priya"*. Every finished score is kept, so staff see them all in the admin page and CSV; the leaderboards show the top 10. The name prompt tells players their name and scores will appear on the leaderboards. Exceptions:
+- **The Health Journey with 2–4 players:** the winner may not be the person who signed in, so **Save winner's score** asks for the winner's name, starting empty.
+- **Route Rush Duel** scores are never saved.
+
+Staff can remove any entry from the [admin page](#for-event-staff-the-admin-page).
+
+The "Passport stamped!" popup at the end of a game disappears on its own, or as soon as the player taps anything.
+
+## For event staff: the admin page
+
+Open **`<arcade address>/admin/`** on any phone or laptop and enter the admin password. You don't need any Azure or server login. The page isn't linked from the games, and search engines are told not to list it.
+
+| Button | What it does | Undo |
+|---|---|---|
+| **Hide / Show** (one game, or all) | Pauses a leaderboard: players see *"🔒 Leaderboard paused by staff"*, and no names are sent to any screen. Scores are kept, and players can still play and save. | Press **Show** |
+| **Remove** (next to an entry) | Deletes that one score (e.g. a fake score or a rude name) | Within 30 days, from the score file's earlier versions (see [azure/README.md](azure/README.md)) |
+| **Wipe scores** (one game, or all) | Deletes that game's scores; you must type the game's name to confirm | Within 30 days, same as above |
+| **CSV** / **Download all (CSV)** | Downloads the scores as a spreadsheet | — |
+| **Lock** | Forgets the password on this device | — |
+
+**The admin page can only affect scores.** It can't change, delete or switch off the games or the website. Those can only change through a new deploy by whoever manages the hosting.
+
+**The password** is set by whoever deploys the arcade: `npm run azure:deploy -- --admin-password <password>`, at least 8 characters. Running that again with a new password changes it straight away. On the local server, set the `ADMIN_TOKEN` environment variable. The page never stores the password, and **5 wrong passwords lock that network address out of the admin page for 15 minutes**. Use something less guessable than a demo password for a real event, and share it only with staff.
 
 ## Staff controls
 
-Inside a game, the 🏠 button in the top-right corner must be **held** for about a second to return to the home screen. This prevents accidental exits. If a round is in progress, or a finished score hasn't been saved yet, the player is warned first that the score will be lost and can choose **Keep playing** or **Leave anyway**. Games also return home on their own after 3 idle minutes, without asking.
+Inside a game, **tap** the 🏠 button in the top-right corner to return to the home screen. If a round is in progress, or a finished score hasn't been saved yet, the player is warned first that the score will be lost and can choose **Keep playing** or **Leave anyway**, so a stray tap never loses a game. Games also return home on their own after 3 idle minutes, without asking.
 
 With a keyboard attached:
 
@@ -76,7 +98,7 @@ All text content lives in plain JavaScript files you can edit in any text editor
 
 | What | File |
 |---|---|
-| Business names, colors, icons + the 60 quiz questions | `questions.js` inside each game folder (Master the Map, Health Journey, Evernorth City and Case Files each have their own copy) |
+| Business names, colors, icons + the 121 quiz questions | `questions.js` inside each game folder (Master the Map, Health Journey, Evernorth City and Case Files each have their own copy) |
 | Route Rush requests, levels, rush events | `route-rush/content.js` |
 | Board layout, event cards, round limits | `health-journey/content.js` |
 | City layout, news events, timings | `evernorth-city/content.js` |
@@ -116,18 +138,17 @@ Games always save to the device first, so a kiosk that loses its network keeps w
 
 **Kiosks with the server:** point the kiosk browser at the server instead of the local files. For example, change the address in `start-kiosk.bat` from `file:///%~dp0index.html` to `http://your-server:3000/`. Or keep the local files and set `scoresApi` to the server's `/api` address.
 
-**Hosting it:** the server needs **one** long-running Node.js process and a disk that keeps its files across restarts, because the database is a single file (`server/data/scores.db`, or `DB_PATH`). Run `npm start` (or `node server/server.js`) and set the settings below as environment variables.
+**On Azure, use the Azure setup instead:** see [Hosting on Azure](#hosting-on-azure). It runs the same games and the same scores API without a server to manage.
+
+**Hosting the local server elsewhere:** `server/server.js` needs **one** long-running Node.js process and a disk that keeps its files across restarts, because the database is a single file (`server/data/scores.db`, or `DB_PATH`). Run `npm start` (or `node server/server.js`) and set the settings below as environment variables.
 
 | Host | Works as is? |
 |---|---|
-| A virtual machine or company server: AWS EC2 or Lightsail, Azure VM, Google Compute Engine | ✅ Yes, the best fit |
-| Platforms with a persistent volume (e.g. Fly.io, Render or Railway with a disk) | ✅ Yes |
+| A virtual machine or company server (e.g. an Azure VM) | ✅ Yes, the best fit |
+| Platforms with a persistent disk | ✅ Yes |
 | Azure App Service | ⚠️ Risky: its storage is a network share, and SQLite isn't safe on network drives |
-| Hosts with no permanent disk (containers without a volume, AWS App Runner/Elastic Beanstalk, Render free tier) | ❌ Scores are wiped on every restart or redeploy |
-| Serverless (AWS Lambda, Azure Functions, Vercel, Netlify) | ❌ Doesn't run there |
+| Hosts with no permanent disk (containers without a volume) | ❌ Scores are wiped on every restart or redeploy |
 | Several copies of the server behind a load balancer | ❌ Each copy would have its own leaderboard |
-
-For the ❌ and ⚠️ cases, the database part of `server/server.js` must move to a managed database such as PostgreSQL (AWS RDS, Azure Database for PostgreSQL). The games and the API don't change.
 
 On a VM, also put HTTPS in front (Caddy, nginx or the cloud's load balancer, with `TRUST_PROXY=1`) and run the server with a process manager such as `pm2` or a system service, so it restarts after a crash or reboot.
 
@@ -142,12 +163,20 @@ If the host only serves static files and can't run Node, host the games there an
 | `SERVE_STATIC` | `1` | `0` = API only, when the games are hosted somewhere else |
 | `TRUST_PROXY` | `0` | `1` when the server sits behind a proxy or load balancer, so rate limits see each real client |
 
-**Protection built in:** names are trimmed to 20 characters, scores above each game's maximum (set in `GAMES` at the top of `server/scores-core.js`) are refused, each address can upload at most 60 times a minute, and names containing a word listed in `server/blocked-words.txt` are refused. Add your own words to that file. Players can still fake a score from the browser's developer tools, so don't attach valuable prizes to the board without checking the top entries.
+**Protection built in** (all in `server/scores-core.js` and `server/scores-api.js`, shared by every host):
+- **Impossible scores are refused.** Each game's limit (`GAMES`) is set just above the highest score it can actually produce; `npm test` recomputes this from the game settings.
+- **Names** are letters (any language), spaces, hyphens and apostrophes only, up to 20 characters.
+- **Blocked words** in `server/blocked-words.txt` (a starter list; add your own) are refused in names and in the rank/token text shown beside them.
+- **Volume limits:** at most 25 scores per upload, and each address can upload at most 300 times a minute. Offices often share one address, so this is sized for about 1,000 people on one network (`POSTS_PER_MINUTE`).
+- **Website restriction:** with `ALLOWED_ORIGIN` set, only those sites' pages can send scores; uploads must be JSON.
+- **Admin password:** every admin action (wipe, remove, hide) needs it, sent in the `X-Admin-Token` header. The [admin page](#for-event-staff-the-admin-page) does this for you. 5 wrong passwords pause that address for 15 minutes.
+
+Players can still fake a score up to a game's limit from the browser's developer tools, so check the top entries before handing out valuable prizes.
 
 **Clearing scores:** `Ctrl+Shift+X` twice in a game only clears that kiosk's view of the board. To wipe the shared board, start the server with an `ADMIN_TOKEN` and run:
 
 ```
-curl -X DELETE "https://your-server/api/scores?game=route-rush" -H "Authorization: Bearer YOUR_TOKEN"
+curl -X DELETE "https://your-server/api/scores?game=route-rush" -H "X-Admin-Token: YOUR_TOKEN"
 ```
 
 Leave out `?game=…` to wipe every game. Game ids: `master-the-map`, `route-rush`, `health-journey`, `evernorth-city`, `case-files`.
@@ -161,6 +190,19 @@ SELECT game, name, MAX(score) AS best FROM scores GROUP BY game, name ORDER BY g
 **Backups:** don't copy `scores.db` on its own while the server is running. Recent scores may still be in `scores.db-wal`, and the copy can come out incomplete. Either stop the server and copy all the `scores.db*` files, use the `sqlite3` tool (`sqlite3 server/data/scores.db ".backup backup.db"`), or turn on your cloud's disk snapshots.
 
 **Checking the server:** http://localhost:3000/api/health answers `{"ok":true}` when the server is up.
+
+## Hosting on Azure
+
+To host the arcade in an Azure subscription, use `azure/`. It deploys a Static Web App (the games, plus the scores API on Azure Functions) and a private Storage Account that keeps one score file per game. It costs cents a month and needs no servers.
+
+```
+npm run azure:preview    # what would be created — changes nothing
+npm run azure:deploy     # create / update everything
+npm run azure:export     # save all scores to this computer (JSON + CSV)
+npm run azure:remove     # delete everything (saves the scores first)
+```
+
+The full guide covers setup, security, everyday tasks, a **company hosting checklist** and troubleshooting: **[azure/README.md](azure/README.md)**.
 
 ## Troubleshooting
 
@@ -183,10 +225,16 @@ ecosystem-arcade/
 ├── home.html                Arcade home screen (loads inside index.html)
 ├── start-kiosk.bat          Windows launcher
 ├── start-kiosk.command      Mac launcher
-├── package.json             `npm start` runs the scores server, `npm test` runs the tests
-├── server/                  server.js (scores API + web server), scores-core.js (the score
-│                            rules: validation, limits, name filter), blocked-words.txt
-├── test/                    automated tests for the scores API and score rules
+├── package.json             `npm start` runs the scores server, `npm test` runs the tests,
+│                            `npm run azure:*` hosts it on Azure
+├── azure/                   Azure hosting: main.bicep, api/ (Azure Function), deploy/export/
+│                            remove scripts, security headers, README.md (setup guide)
+├── server/                  server.js (web server), scores-api.js (the API endpoints, shared
+│                            with Azure), scores-core.js (the score rules: validation,
+│                            limits, name filter), blocked-words.txt
+├── test/                    automated tests: API contract (local + Azure), score rules,
+│                            Azure score files
+├── admin/                   staff page for leaderboard scores (/admin/, password-protected)
 ├── shared/                  config.js (scores server address), leaderboard.js,
 │                            passport.js, launcher.js, launcher.css, fullscreen.js
 ├── master-the-map/
@@ -210,7 +258,7 @@ If you use shared leaderboards:
 
 - [ ] Confirm the host keeps files across restarts (see the hosting table above).
 - [ ] Set an `ADMIN_TOKEN` so you can wipe test scores, and keep it private.
-- [ ] Lower each game's `maxScore` in `server/scores-core.js` to just above a real top score.
-- [ ] Add words to `server/blocked-words.txt`.
+- [ ] If you changed a game's scoring settings, run `npm test`. It checks each game's `maxScore` is still above what the game can produce.
+- [ ] Review `server/blocked-words.txt` and add words your event needs.
 - [ ] Point every kiosk at the server, save a test score on one and check it appears on another.
 - [ ] Set up backups of the database.
